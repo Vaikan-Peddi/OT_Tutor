@@ -1,5 +1,14 @@
 """
 agents/manager.py — QuestionSession dataclass + ManagerAgent orchestration logic.
+
+Conversation lifecycle:
+  1. Manager.start_session() called at connect time → RapportAgent fires proactively
+  2. Student sends their question → Initializer runs (RAG + stable knowledge)
+  3. Tutoring loop (turns 1-2: direct_answer masked; turn 3+: unmasked)
+  4. Assessment phase (turn_count > 4, clinical scenario presented)
+  5. /reveal → RevealAgent generates full mastery summary
+
+The Manager is the only agent with full state visibility.
 """
 
 import uuid
@@ -9,7 +18,7 @@ from typing import Optional
 
 from src.config import REVEAL_TURN_THRESHOLD
 from src.retriever import retrieve_context
-from src.agents.analyzer import run_analyzer
+from src.agents.analyzer import run_initializer, run_analyzer
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -18,30 +27,42 @@ from src.agents.analyzer import run_analyzer
 
 @dataclass
 class QuestionSession:
-    """Isolated context per student question. Serialisable via to_db_record()."""
+    """
+    Isolated context for one student question.
+    Phases: tutoring → assessment → revealed
+    (Rapport happens at ManagerAgent level before any session opens.)
+    """
 
-    session_id       : str  = field(default_factory=lambda: str(uuid.uuid4())[:8])
-    original_question: str  = ""
-    started_at       : str  = field(default_factory=lambda: datetime.datetime.now().isoformat())
+    session_id        : str  = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    original_question : str  = ""
+    started_at        : str  = field(default_factory=lambda: datetime.datetime.now().isoformat())
 
-    turn_count      : int  = 0
-    phase           : str  = "tutoring"    # "tutoring" | "assessment" | "revealed"
+    # ── Phase tracking ────────────────────────────────────────────────────
+    turn_count : int = 0
+    # Valid values: "tutoring" | "assessment" | "revealed"
+    phase      : str = "tutoring"
 
+    # ── Reveal gating ─────────────────────────────────────────────────────
     reveal_unlocked : bool = False
     reveal_offered  : bool = False
     revealed        : bool = False
 
-    direct_answer     : str = ""
-    useful_info       : str = ""
-    clinical_scenario : str = ""
+    # ── Stable knowledge — set once by Initializer, never regenerated ─────
+    direct_answer     : str  = ""
+    useful_info       : str  = ""
+    clinical_scenario : str  = ""
+    related_questions : list = field(default_factory=list)
 
-    conversation: list = field(default_factory=list)
+    # ── Conversation history (LLM format) ─────────────────────────────────
+    conversation : list = field(default_factory=list)
 
+    # ── Structured logs ───────────────────────────────────────────────────
     topic_label    : str  = ""
     attempts       : list = field(default_factory=list)
     mistakes       : list = field(default_factory=list)
     revisit_topics : list = field(default_factory=list)
 
+    # ── RAG cache ─────────────────────────────────────────────────────────
     retrieved_context : str  = ""
     retrieved_sources : list = field(default_factory=list)
 
@@ -90,96 +111,127 @@ class QuestionSession:
 
 class ManagerAgent:
     """
-    Orchestrates one conversation: session bookkeeping, RAG retrieval,
-    Analyzer calls, phase transitions, and /reveal gating.
+    Orchestrates the full tutoring conversation.
 
-    Usage:
-        manager = ManagerAgent()
-        reply   = manager.handle_turn(student_message)
+    Call start_session() once when the student connects — this fires the rapport
+    greeting proactively. Then call handle_turn() for every student message.
     """
 
     def __init__(self):
-        self.session: Optional[QuestionSession] = None
-        self.global_history: list = []          # full multi-session history
-        self.weak_topics: list    = []           # cross-session struggle topics
+        self.session            : Optional[QuestionSession] = None
+        self.global_history     : list = []
+        self.weak_topics        : list = []
+        # True after rapport has fired, waiting for student's actual question.
+        self._awaiting_question : bool = False
 
-    # ── Public entry point ─────────────────────────────────────────────────
+    # ── Called once at conversation start ─────────────────────────────────
+
+    def start_session(self) -> str:
+        """
+        Send the rapport greeting proactively, before any student message.
+        Call this once when the student connects / the chat UI opens.
+
+        Returns:
+            The rapport greeting string to display to the student.
+        """
+        from src.agents.rapport import run_rapport
+        self._awaiting_question = True
+        return run_rapport(weak_topics=self.weak_topics)
+
+    # ── Called for every student message ──────────────────────────────────
 
     def handle_turn(self, student_message: str) -> str:
-        """Process one student message; return the tutor's reply."""
-        from src.agents.tutor import run_tutor   # local import to avoid circular
+        """Process one student message and return the agent's reply."""
+        from src.agents.tutor  import run_tutor
+        from src.agents.reveal import run_reveal
 
-        # ── /reveal command ────────────────────────────────────────────────
+        # ── /reveal command ───────────────────────────────────────────────
         if student_message.strip().lower() == "/reveal":
-            return self._handle_reveal()
+            return self._handle_reveal(run_reveal)
 
-        # ── New session detection ──────────────────────────────────────────
-        if self.session is None or self._is_new_question(student_message):
+        # ── Awaiting first question after rapport ─────────────────────────
+        # The student's first message IS their anatomy question — open a session.
+        if self._awaiting_question:
+            self._awaiting_question = False
+            self.session = self._open_session(student_message)
+
+        # ── New question mid-conversation ─────────────────────────────────
+        elif self._is_new_question(student_message):
+            self.session = self._open_session(student_message)
+
+        # ── Edge case: handle_turn called before start_session ────────────
+        elif self.session is None:
             self.session = self._open_session(student_message)
 
         session = self.session
         session.turn_count += 1
 
-        # ── Unlock /reveal after threshold ────────────────────────────────
         if session.turn_count >= REVEAL_TURN_THRESHOLD:
             session.reveal_unlocked = True
 
-        # ── RAG retrieval (only on turn 1 of each session) ────────────────
-        if session.turn_count == 1:
+        # ── First turn: RAG retrieval + Initializer ───────────────────────
+        if not session.retrieved_context:
             ctx, srcs = retrieve_context(session.original_question)
             session.retrieved_context = ctx
             session.retrieved_sources = srcs
 
-        # ── Analyzer ──────────────────────────────────────────────────────
+            init = run_initializer(
+                original_question = session.original_question,
+                context           = session.retrieved_context,
+            )
+            session.direct_answer     = init["direct_answer"]
+            session.clinical_scenario = init["clinical_scenario"]
+            session.related_questions = init["related_questions"]
+            session.useful_info       = init["useful_info"]
+            session.topic_label       = init["topic_label"]
+
+        # ── Every turn: evaluate student response ─────────────────────────
         analysis = run_analyzer(
-            student_message          = student_message,
-            context                  = session.retrieved_context,
-            question_session_history = session.conversation,
-            original_question        = session.original_question,
+            student_message      = student_message,
+            original_question    = session.original_question,
+            direct_answer        = session.direct_answer,
+            conversation_history = session.conversation,
         )
 
-        # Persist private knowledge on first turn
-        if session.turn_count == 1:
-            session.direct_answer     = analysis.get("direct_answer", "")
-            session.useful_info       = analysis.get("useful_info", "")
-            session.clinical_scenario = analysis.get("clinical_scenario", "")
-            session.topic_label       = analysis.get("topic_label") or ""
+        # Attach stable questions so Tutor can pick one
+        analysis["related_questions"] = session.related_questions
 
-        # Phase transition to assessment after turn 3
-        if session.turn_count > 3 and session.phase == "tutoring":
+        # Masking: Tutor only sees direct_answer after the first 2 turns
+        analysis["direct_answer_for_tutor"] = (
+            session.direct_answer if session.turn_count > 2 else None
+        )
+
+        # Phase transition: tutoring → assessment after turn 4
+        if session.turn_count > 4 and session.phase == "tutoring":
             session.phase = "assessment"
 
-        # ── Tutor ─────────────────────────────────────────────────────────
-        tutor_reply = run_tutor(
-            student_message  = student_message,
-            analysis         = analysis,
-            session          = session,
+        reply = run_tutor(
+            student_message = student_message,
+            analysis        = analysis,
+            session         = session,
         )
 
-        # ── Update conversation history ────────────────────────────────────
         session.conversation.append({"role": "user",      "content": student_message})
-        session.conversation.append({"role": "assistant", "content": tutor_reply})
+        session.conversation.append({"role": "assistant", "content": reply})
 
-        # Log attempt
         session.log_attempt(
             turn            = session.turn_count,
             student_msg     = student_message,
-            tutor_msg       = tutor_reply,
+            tutor_msg       = reply,
             quality         = analysis.get("student_answer_quality", "unanswered"),
             score           = analysis.get("proximity_score", 0),
             summary         = analysis.get("attempt_summary"),
             mistake_excerpt = analysis.get("mistake_excerpt"),
         )
 
-        # Track weak topics globally
         if analysis.get("student_answer_quality") in ("wrong", "partial"):
             topic = session.topic_label
             if topic and topic not in self.weak_topics:
                 self.weak_topics.append(topic)
 
-        return tutor_reply
+        return reply
 
-    # ── Helpers ────────────────────────────────────────────────────────────
+    # ── Helpers ───────────────────────────────────────────────────────────
 
     def _open_session(self, question: str) -> QuestionSession:
         if self.session:
@@ -187,28 +239,24 @@ class ManagerAgent:
         return QuestionSession(original_question=question)
 
     def _is_new_question(self, message: str) -> bool:
-        """Heuristic: treat message as new question if session has ≥3 turns
-        and message ends with '?' and doesn't look like a follow-up."""
         if self.session is None:
             return True
         if self.session.turn_count < 2:
             return False
-        followup_words = {"but", "and", "so", "also", "what about", "why", "how", "ok", "okay"}
+        followup_starters = {"but", "and", "so", "also", "what about", "why", "how", "ok", "okay"}
         lowered = message.lower().strip()
-        starts_followup = any(lowered.startswith(w) for w in followup_words)
+        starts_followup = any(lowered.startswith(w) for w in followup_starters)
         return message.strip().endswith("?") and not starts_followup
 
-    def _handle_reveal(self) -> str:
+    def _handle_reveal(self, run_reveal) -> str:
         if self.session is None:
             return "Ask a question first before using /reveal."
         if not self.session.reveal_unlocked:
+            remaining = REVEAL_TURN_THRESHOLD - self.session.turn_count
             return (
-                f"You need at least {REVEAL_TURN_THRESHOLD} attempts before revealing the answer. "
-                f"Keep trying — you're on turn {self.session.turn_count}!"
+                f"You need {remaining} more attempt(s) before revealing the answer. "
+                "Keep going — you're getting there!"
             )
         self.session.phase    = "revealed"
         self.session.revealed = True
-        return (
-            f"**Direct answer:**\n{self.session.direct_answer}\n\n"
-            f"**Useful clinical note:**\n{self.session.useful_info}"
-        )
+        return run_reveal(session=self.session)

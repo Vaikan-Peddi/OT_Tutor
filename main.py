@@ -23,6 +23,10 @@ def main():
 
     manager = ManagerAgent()
 
+    # Rapport greeting fires automatically before any student input
+    opening = manager.start_session()
+    print(f"\nTutor: {opening}\n")
+
     while True:
         try:
             user_input = input("\nYou: ").strip()

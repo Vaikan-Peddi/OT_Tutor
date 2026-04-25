@@ -26,29 +26,32 @@ def _build_client():
 _client = _build_client()
 
 
-def llm_chat(system_prompt: str, messages: list) -> str:
+def llm_chat(system_prompt: str, messages: list, max_tokens: int = None) -> str:
     """
     Unified chat call.
 
     Args:
         system_prompt: instruction for the model
         messages:      list of {"role": "user"|"assistant", "content": str}
+        max_tokens:    override the default MAX_TOKENS_LLM for this call
 
     Returns:
         Model's reply as a plain string.
     """
+    tokens = max_tokens or MAX_TOKENS_LLM
+
     if ACTIVE_PROVIDER in ("groq", "openai"):
         response = _client.chat.completions.create(
             model=ACTIVE_MODEL,
             messages=[{"role": "system", "content": system_prompt}] + messages,
-            max_tokens=MAX_TOKENS_LLM,
+            max_tokens=tokens,
         )
         return response.choices[0].message.content
 
     if ACTIVE_PROVIDER == "anthropic":
         response = _client.messages.create(
             model=ACTIVE_MODEL,
-            max_tokens=MAX_TOKENS_LLM,
+            max_tokens=tokens,
             system=system_prompt,
             messages=messages,
         )
