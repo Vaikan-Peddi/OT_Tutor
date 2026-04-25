@@ -1,0 +1,22 @@
+# Environment & secrets
+.env
+
+# ChromaDB — rebuild with run_ingest.py
+db/
+
+# Eval outputs
+eval_results/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Data (large PDF)
+data/*.pdf
+
+# Jupyter leftovers
+.ipynb_checkpoints/
+*.ipynb
