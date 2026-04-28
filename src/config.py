@@ -39,7 +39,7 @@ CHUNK_OVERLAP = 50
 DEFAULT_K = 3          # top-k passages per query
 
 # ── Session / tutoring ─────────────────────────────────────────────────────
-REVEAL_TURN_THRESHOLD = 3   # /reveal unlocks after this many turns
+REVEAL_TURN_THRESHOLD = 4   # /reveal unlocks after this many turns
 MAX_TOKENS_LLM        = 512
 
 # ── Eval ───────────────────────────────────────────────────────────────────

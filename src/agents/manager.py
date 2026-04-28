@@ -1,12 +1,12 @@
 """
 agents/manager.py — QuestionSession dataclass + ManagerAgent orchestration logic.
 
-Conversation lifecycle:
-  1. Manager.start_session() called at connect time → RapportAgent fires proactively
-  2. Student sends their question → Initializer runs (RAG + stable knowledge)
-  3. Tutoring loop (turns 1-2: direct_answer masked; turn 3+: unmasked)
-  4. Assessment phase (turn_count > 4, clinical scenario presented)
-  5. /reveal → RevealAgent generates full mastery summary
+PIPELINE (per question):
+  Turn 1 → RAG fetch + Initializer runs → Tutor gives Hint 1 (NO answer, no spoilers)
+  Turn 2 → Tutor gives Hint 2 (still NO answer)
+  Turn 3 → Tutor REVEALS the direct answer fully, then presents clinical scenario
+  Turn 4+ → Assessment phase: student reasons through clinical scenario
+  /mastery → Full mastery summary (replaces /reveal)
 
 The Manager is the only agent with full state visibility.
 """
@@ -29,8 +29,12 @@ from src.agents.analyzer import run_initializer, run_analyzer
 class QuestionSession:
     """
     Isolated context for one student question.
-    Phases: tutoring → assessment → revealed
-    (Rapport happens at ManagerAgent level before any session opens.)
+
+    Phases:
+      "tutoring"   → turns 1-2: Socratic hints, answer masked
+      "reveal"     → turn 3: tutor gives full answer + clinical scenario
+      "assessment" → turn 4+: student reasons through clinical scenario
+      "mastery"    → after /mastery command: full summary
     """
 
     session_id        : str  = field(default_factory=lambda: str(uuid.uuid4())[:8])
@@ -39,13 +43,11 @@ class QuestionSession:
 
     # ── Phase tracking ────────────────────────────────────────────────────
     turn_count : int = 0
-    # Valid values: "tutoring" | "assessment" | "revealed"
-    phase      : str = "tutoring"
+    phase      : str = "tutoring"   # "tutoring" | "reveal" | "assessment" | "mastery"
 
-    # ── Reveal gating ─────────────────────────────────────────────────────
-    reveal_unlocked : bool = False
-    reveal_offered  : bool = False
-    revealed        : bool = False
+    # ── Mastery command gating ─────────────────────────────────────────────
+    mastery_unlocked : bool = False
+    mastery_done     : bool = False
 
     # ── Stable knowledge — set once by Initializer, never regenerated ─────
     direct_answer     : str  = ""
@@ -113,27 +115,19 @@ class ManagerAgent:
     """
     Orchestrates the full tutoring conversation.
 
-    Call start_session() once when the student connects — this fires the rapport
-    greeting proactively. Then call handle_turn() for every student message.
+    Call start_session() once when the student connects — fires rapport greeting.
+    Then call handle_turn() for every student message.
     """
 
     def __init__(self):
         self.session            : Optional[QuestionSession] = None
         self.global_history     : list = []
         self.weak_topics        : list = []
-        # True after rapport has fired, waiting for student's actual question.
         self._awaiting_question : bool = False
 
     # ── Called once at conversation start ─────────────────────────────────
 
     def start_session(self) -> str:
-        """
-        Send the rapport greeting proactively, before any student message.
-        Call this once when the student connects / the chat UI opens.
-
-        Returns:
-            The rapport greeting string to display to the student.
-        """
         from src.agents.rapport import run_rapport
         self._awaiting_question = True
         return run_rapport(weak_topics=self.weak_topics)
@@ -142,15 +136,14 @@ class ManagerAgent:
 
     def handle_turn(self, student_message: str) -> str:
         """Process one student message and return the agent's reply."""
-        from src.agents.tutor  import run_tutor
-        from src.agents.reveal import run_reveal
+        from src.agents.tutor   import run_tutor
+        from src.agents.mastery import run_mastery
 
-        # ── /reveal command ───────────────────────────────────────────────
-        if student_message.strip().lower() == "/reveal":
-            return self._handle_reveal(run_reveal)
+        # ── /mastery command (also catches legacy /reveal) ─────────────────
+        if student_message.strip().lower() in ("/mastery", "/reveal"):
+            return self._handle_mastery(run_mastery)
 
         # ── Awaiting first question after rapport ─────────────────────────
-        # The student's first message IS their anatomy question — open a session.
         if self._awaiting_question:
             self._awaiting_question = False
             self.session = self._open_session(student_message)
@@ -166,8 +159,9 @@ class ManagerAgent:
         session = self.session
         session.turn_count += 1
 
+        # Mastery command unlocks once assessment phase starts (turn 4+)
         if session.turn_count >= REVEAL_TURN_THRESHOLD:
-            session.reveal_unlocked = True
+            session.mastery_unlocked = True
 
         # ── First turn: RAG retrieval + Initializer ───────────────────────
         if not session.retrieved_context:
@@ -185,25 +179,37 @@ class ManagerAgent:
             session.useful_info       = init["useful_info"]
             session.topic_label       = init["topic_label"]
 
-        # ── Every turn: evaluate student response ─────────────────────────
-        analysis = run_analyzer(
-            student_message      = student_message,
-            original_question    = session.original_question,
-            direct_answer        = session.direct_answer,
-            conversation_history = session.conversation,
-        )
-
-        # Attach stable questions so Tutor can pick one
-        analysis["related_questions"] = session.related_questions
-
-        # Masking: Tutor only sees direct_answer after the first 2 turns
-        analysis["direct_answer_for_tutor"] = (
-            session.direct_answer if session.turn_count > 2 else None
-        )
-
-        # Phase transition: tutoring → assessment after turn 4
-        if session.turn_count > 4 and session.phase == "tutoring":
+        # ── Phase transitions ─────────────────────────────────────────────
+        # Turn 1-2:  tutoring  → Socratic hints, answer strictly masked
+        # Turn 3:    reveal    → give the full answer + present clinical scenario
+        # Turn 4+:   assessment → student reasons through the clinical scenario
+        if session.turn_count == 3 and session.phase == "tutoring":
+            session.phase = "reveal"
+        elif session.turn_count > 3 and session.phase in ("tutoring", "reveal"):
             session.phase = "assessment"
+
+        # ── Per-turn analysis ─────────────────────────────────────────────
+        # On the reveal turn the student hasn't answered yet, so skip evaluation.
+        if session.phase in ("tutoring", "assessment"):
+            analysis = run_analyzer(
+                student_message      = student_message,
+                original_question    = session.original_question,
+                direct_answer        = session.direct_answer,
+                conversation_history = session.conversation,
+            )
+        else:
+            analysis = {
+                "student_answer_quality": "unanswered",
+                "proximity_score"       : 0,
+                "attempt_summary"       : None,
+                "mistake_excerpt"       : None,
+            }
+
+        # Attach session knowledge for the Tutor
+        analysis["related_questions"]   = session.related_questions
+        analysis["clinical_scenario"]   = session.clinical_scenario
+        analysis["direct_answer"]       = session.direct_answer
+        analysis["mastery_unlocked"]    = session.mastery_unlocked
 
         reply = run_tutor(
             student_message = student_message,
@@ -248,15 +254,15 @@ class ManagerAgent:
         starts_followup = any(lowered.startswith(w) for w in followup_starters)
         return message.strip().endswith("?") and not starts_followup
 
-    def _handle_reveal(self, run_reveal) -> str:
+    def _handle_mastery(self, run_mastery) -> str:
         if self.session is None:
-            return "Ask a question first before using /reveal."
-        if not self.session.reveal_unlocked:
+            return "Ask a question first before using /mastery."
+        if not self.session.mastery_unlocked:
             remaining = REVEAL_TURN_THRESHOLD - self.session.turn_count
             return (
-                f"You need {remaining} more attempt(s) before revealing the answer. "
-                "Keep going — you're getting there!"
+                f"You need {remaining} more turn(s) before the mastery summary unlocks. "
+                "Keep working through it — you're almost there!"
             )
-        self.session.phase    = "revealed"
-        self.session.revealed = True
-        return run_reveal(session=self.session)
+        self.session.phase        = "mastery"
+        self.session.mastery_done = True
+        return run_mastery(session=self.session)

@@ -220,7 +220,6 @@ def run_analyzer(
     ])
 
     raw    = llm_chat(_ANALYZER_SYSTEM, [{"role": "user", "content": prompt}])
-    print(raw)
     result = _extract_json(raw, _ANALYZER_FALLBACK)
 
     for key, default in _ANALYZER_FALLBACK.items():

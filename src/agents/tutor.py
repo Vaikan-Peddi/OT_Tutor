@@ -1,28 +1,62 @@
 """
-agents/tutor.py — Socratic tutor agent; the only agent that speaks to the student.
+agents/tutor.py — Socratic tutor agent; the ONLY agent that speaks to the student.
 
-Spec requirement: the bot is STRICTLY FORBIDDEN from giving a direct answer
-in the first two turns (turns 2-3 in tutoring phase, since turn 1 is rapport).
-It must use retrieved context to ask a leading question only.
+STRICT PIPELINE:
+  Phase "tutoring" (turns 1-2): Ask ONE leading hint question. NEVER give or imply the answer.
+  Phase "reveal"   (turn 3):    State the full direct answer clearly, then present the
+                                 clinical scenario and ask the student to reason through it.
+  Phase "assessment" (turn 4+): Evaluate the student's clinical reasoning and give feedback.
+  Phase "mastery"  (/mastery):  Not handled here — goes to mastery agent.
 """
 
 from src.llm import llm_chat
 
-TUTOR_SYSTEM_PROMPT = """\
-You are a warm, Socratic OT tutor following the "Tutor-not-Teller" philosophy.
-Your job is to guide the student toward the answer through questions — never state it directly.
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase-specific system prompts  (explicit, no ambiguity for the LLM)
+# ─────────────────────────────────────────────────────────────────────────────
 
-STRICT RULES (non-negotiable):
-1. For the first 2 tutoring turns: you are FORBIDDEN from giving any direct definition \
-or direct answer. You MUST ask exactly one leading question based on the textbook context.
-2. After turn 2: you may affirm correct reasoning, gently correct mistakes, and push deeper — \
-but still never give the full answer away.
-3. Ask exactly ONE question per turn. Never stack multiple questions.
-4. In ASSESSMENT phase: present the clinical scenario and ask the student to reason through it.
-5. In REVEALED phase: you may give a complete summary with clinical pearls.
-6. Keep responses to 3-4 sentences maximum (except in revealed phase).
-7. If reveal_unlocked is True and reveal_offered is False: end your reply by mentioning \
-the student can type /reveal to see the full answer.
+_HINT_SYSTEM = """\
+You are a warm Socratic OT tutor. Your ONLY job right now is to ask ONE leading hint question.
+
+STRICT RULES — NO EXCEPTIONS:
+1. Do NOT state, imply, or hint at the direct answer to the student's question.
+2. Do NOT define any key anatomy/neuroscience terms directly.
+3. Ask EXACTLY ONE short question that activates the student's existing knowledge.
+4. Your entire response must be 2-3 sentences maximum.
+5. If the student already gave a partial answer, acknowledge it briefly, then push deeper with your question.
+6. Do NOT say "Great question!" or similar filler openers.
+
+Your question should lead the student toward the answer without giving it away.\
+"""
+
+_REVEAL_SYSTEM = """\
+You are a warm OT tutor. The student has had 2 attempts. It is now time to REVEAL the answer.
+
+Your response must include all of the following, but in a natural, conversational way (do NOT use section headings or numbers):
+- Clearly state the direct answer, using the DIRECT ANSWER provided in the context. Be accurate and grounded.
+- Present the clinical scenario from the context, smoothly transitioning from the answer to the scenario (e.g., "Now let's apply this..." or similar).
+- End with a question inviting the student to explain what is happening to the patient and what OT strategies might help (e.g., "How would you explain what is happening to this patient, and what OT strategies might help?").
+
+Keep the whole response under 200 words. Do not use explicit section headings or numbers.\
+"""
+
+_ASSESSMENT_SYSTEM = """\
+You are a warm OT tutor evaluating a student's clinical reasoning.
+
+YOUR RESPONSE MUST FOLLOW THIS EXACT STRUCTURE:
+
+1. FEEDBACK (2-3 sentences): Evaluate the student's answer against the gold-standard.
+   - If correct: affirm clearly, name exactly what they got right.
+   - If partial: name what's right, then explain exactly what's missing.
+   - If wrong: be warm but clear — correct the misconception directly.
+
+2. CLINICAL PEARL (1 sentence): Give one memorable takeaway fact or mnemonic.
+
+3. NEXT STEP (1 sentence): Tell the student what to do next.
+   - If they haven't typed /mastery yet, say: "When you're ready for the full mastery summary, type /mastery"
+   - If this is a follow-up assessment turn, ask them to try again or elaborate.
+
+Keep the whole response under 150 words. Be warm and specific. Do not use explicit section headings or numbers.\
 """
 
 
@@ -32,67 +66,91 @@ def run_tutor(student_message: str, analysis: dict, session) -> str:
 
     Args:
         student_message: raw student input this turn
-        analysis:        parsed output from AnalyzerAgent
+        analysis:        output from AnalyzerAgent + extra fields from Manager
         session:         QuestionSession (phase, turn_count, history, etc.)
 
     Returns:
         Tutor's reply as a plain string.
     """
-    proximity = analysis.get("proximity_score", 0)
-    quality   = analysis.get("student_answer_quality", "unanswered")
-    mistake   = analysis.get("mistake_excerpt")
-    # None when masked (turns 1-3), actual answer after turn 3
-    revealed_answer = analysis.get("direct_answer_for_tutor")
+    phase = session.phase
 
-    lines = [
-        f"[PHASE: {session.phase}]",
-        f"[TURN: {session.turn_count}]",
-        f"[SOCRATIC_LOCK: {'YES — do NOT give any direct answer or definition this turn' if session.turn_count <= 3 else 'NO — can affirm and deepen, but still guide Socratically'}]",
-        f"[PROXIMITY: {proximity}/100]",
-        f"[QUALITY: {quality}]",
-        "",
-    ]
-
-    if revealed_answer:
-        lines += [
-            "DIRECT ANSWER (now unlocked — you may use this to deepen guidance, NOT to state verbatim):",
-            revealed_answer,
+    # ── Build the user-side context block (hidden from student) ──────────
+    if phase == "tutoring":
+        system = _HINT_SYSTEM
+        # Mask direct answer keywords from hint context
+        direct_answer = analysis.get("direct_answer", "")
+        # Remove direct answer keywords from related questions
+        def mask_keywords(q):
+            for word in set(direct_answer.replace(',', '').replace('.', '').split()):
+                if len(word) > 3:  # Only mask longer words (likely to be key terms)
+                    q = q.replace(word, "____")
+            return q
+        hint_questions = "\n".join(
+            f"  - {mask_keywords(q)}" for q in analysis.get("related_questions", [])
+        )
+        # Also mask keywords in the student question context
+        masked_question = session.original_question
+        for word in set(direct_answer.replace(',', '').replace('.', '').split()):
+            if len(word) > 3:
+                masked_question = masked_question.replace(word, "____")
+        ctx_block = "\n".join([
+            f"TURN: {session.turn_count} of 2 (hint turns)",
+            f"STUDENT QUESTION BEING TUTORED: {masked_question}",
             "",
-        ]
+            "HINT QUESTIONS — pick the most fitting one and rephrase if needed:",
+            hint_questions,
+            "",
+            "STUDENT'S ATTEMPT THIS TURN:",
+            student_message,
+            "",
+            f"QUALITY: {analysis.get('student_answer_quality', 'unanswered')}",
+            f"PROXIMITY: {analysis.get('proximity_score', 0)}/100",
+            analysis.get("attempt_summary") or "",
+        ])
+
+    elif phase == "reveal":
+        system = _REVEAL_SYSTEM
+        ctx_block = "\n".join([
+            "DIRECT ANSWER (state this clearly — the student has exhausted their 2 attempts):",
+            analysis.get("direct_answer", "No answer available."),
+            "",
+            "CLINICAL SCENARIO (present this after giving the answer):",
+            analysis.get("clinical_scenario", "No scenario available."),
+        ])
+
+    elif phase == "assessment":
+        system = _ASSESSMENT_SYSTEM
+        ctx_block = "\n".join([
+            "GOLD-STANDARD ANSWER (use for evaluation — do NOT read verbatim):",
+            analysis.get("direct_answer", ""),
+            "",
+            "CLINICAL SCENARIO THAT WAS PRESENTED:",
+            analysis.get("clinical_scenario", ""),
+            "",
+            "STUDENT'S RESPONSE THIS TURN:",
+            student_message,
+            "",
+            f"QUALITY: {analysis.get('student_answer_quality', 'unanswered')}",
+            f"PROXIMITY: {analysis.get('proximity_score', 0)}/100",
+            analysis.get("attempt_summary") or "",
+            analysis.get("mistake_excerpt") and f"MISTAKE: {analysis['mistake_excerpt']}" or "",
+            "",
+            f"MASTERY_UNLOCKED: {analysis.get('mastery_unlocked', False)}",
+        ])
+
     else:
-        lines.append("DIRECT ANSWER: [MASKED — do not reveal or hint at the answer directly]")
-        lines.append("")
+        # Fallback (should not happen — mastery handled elsewhere)
+        return "Type /mastery to see your full session summary."
 
-    lines += ["SOCRATIC QUESTIONS (pick the most fitting one for this turn):"]
-    for q in analysis.get("related_questions", []):
-        lines.append(f"  - {q}")
-
-    if session.phase == "assessment" and session.clinical_scenario:
-        lines += ["", "CLINICAL SCENARIO TO PRESENT:", session.clinical_scenario]
-
-    if mistake:
-        lines += ["", f"MISTAKE TO GENTLY CORRECT: {mistake}"]
-
-    lines += [
-        "",
-        f"REVEAL_UNLOCKED: {session.reveal_unlocked}",
-        f"REVEAL_OFFERED:  {session.reveal_offered}",
-    ]
-
-    ctx_block = "\n".join(lines)
-
-    # Full message list: history + this turn with hidden context appended
+    # ── Build message list: history + this turn with hidden context ───────
     messages = list(session.conversation) + [
         {
             "role": "user",
-            "content": f"{student_message}\n\n[TUTOR CONTEXT — not visible to student]\n{ctx_block}",
+            "content": (
+                f"{student_message}\n\n"
+                f"[TUTOR CONTEXT — internal only, not visible to student]\n{ctx_block}"
+            ),
         }
     ]
 
-    reply = llm_chat(TUTOR_SYSTEM_PROMPT, messages)
-
-    # Flip the flag so we don't mention /reveal again next turn
-    if session.reveal_unlocked and not session.reveal_offered:
-        session.reveal_offered = True
-
-    return reply
+    return llm_chat(system, messages)
