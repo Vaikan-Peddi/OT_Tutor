@@ -77,12 +77,25 @@ def run_tutor(student_message: str, analysis: dict, session) -> str:
     # ── Build the user-side context block (hidden from student) ──────────
     if phase == "tutoring":
         system = _HINT_SYSTEM
+        # Mask direct answer keywords from hint context
+        direct_answer = analysis.get("direct_answer", "")
+        # Remove direct answer keywords from related questions
+        def mask_keywords(q):
+            for word in set(direct_answer.replace(',', '').replace('.', '').split()):
+                if len(word) > 3:  # Only mask longer words (likely to be key terms)
+                    q = q.replace(word, "____")
+            return q
         hint_questions = "\n".join(
-            f"  - {q}" for q in analysis.get("related_questions", [])
+            f"  - {mask_keywords(q)}" for q in analysis.get("related_questions", [])
         )
+        # Also mask keywords in the student question context
+        masked_question = session.original_question
+        for word in set(direct_answer.replace(',', '').replace('.', '').split()):
+            if len(word) > 3:
+                masked_question = masked_question.replace(word, "____")
         ctx_block = "\n".join([
             f"TURN: {session.turn_count} of 2 (hint turns)",
-            f"STUDENT QUESTION BEING TUTORED: {session.original_question}",
+            f"STUDENT QUESTION BEING TUTORED: {masked_question}",
             "",
             "HINT QUESTIONS — pick the most fitting one and rephrase if needed:",
             hint_questions,
