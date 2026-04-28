@@ -45,6 +45,32 @@ def main():
 
         if user_input.lower() in ("/quit", "/exit"):
             print("Session ended. Good luck studying!")
+            # Prompt to save transcript if there is a session
+            if manager.session and manager.session.turn_count > 0:
+                save = input("Do you want to save this conversation for RAGAS evaluation (eval_results/eval_transcripts.json)? (y/n): ").strip().lower()
+                if save == "y":
+                    import json, os
+                    ragas_path = os.path.join("eval_results", "eval_transcripts.json")
+                    s = manager.session
+                    ragas_entry = {
+                        "id": s.session_id,
+                        "question": s.original_question,
+                        "hidden_direct_answer": s.direct_answer,
+                        "retrieved_context": s.retrieved_context,
+                        "conversations": [
+                            {"role": msg["role"], "content": msg["content"]}
+                            for msg in s.conversation
+                        ],
+                    }
+                    try:
+                        with open(ragas_path, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                    except Exception:
+                        data = []
+                    data.append(ragas_entry)
+                    with open(ragas_path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2)
+                    print(f"[Transcript saved to {ragas_path}]")
             break
 
         if user_input.lower() == "/new":
