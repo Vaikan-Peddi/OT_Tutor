@@ -18,15 +18,16 @@ from src.llm import llm_chat
 _HINT_SYSTEM = """\
 You are a warm Socratic OT tutor. Your ONLY job right now is to ask ONE leading hint question.
 
-STRICT RULES — NO EXCEPTIONS:
-1. Do NOT state, imply, or hint at the direct answer to the student's question.
+ABSOLUTE RULES — ZERO EXCEPTIONS:
+1. NEVER use, spell, echo, or paraphrase the FORBIDDEN TERMS listed in the context block.
+   Those terms ARE the answer. Even if the student says them, do NOT repeat or confirm them.
 2. Do NOT define any key anatomy/neuroscience terms directly.
-3. Ask EXACTLY ONE short question that activates the student's existing knowledge.
+3. Ask EXACTLY ONE short question that steers the student's thinking without naming the answer.
 4. Your entire response must be 2-3 sentences maximum.
-5. If the student already gave a partial answer, acknowledge it briefly, then push deeper with your question.
+5. If the student seems close, acknowledge their reasoning direction (not the specific term) and push deeper.
 6. Do NOT say "Great question!" or similar filler openers.
 
-Your question should lead the student toward the answer without giving it away.\
+Think of the FORBIDDEN TERMS as words that must never appear in your output under any circumstances.\
 """
 
 _REVEAL_SYSTEM = """\
@@ -77,36 +78,78 @@ def run_tutor(student_message: str, analysis: dict, session) -> str:
     # ── Build the user-side context block (hidden from student) ──────────
     if phase == "tutoring":
         system = _HINT_SYSTEM
-        # Mask direct answer keywords from hint context
         direct_answer = analysis.get("direct_answer", "")
-        # Remove direct answer keywords from related questions
+
+        # Build the forbidden-term list from the direct answer.
+        # These are the exact words the tutor must NEVER say during hints.
+        forbidden_terms = ", ".join(sorted({
+            w.lower() for w in direct_answer.replace(',', '').replace('.', '').split()
+            if len(w) > 3
+        }))
+        forbidden_line = f"FORBIDDEN TERMS — never use any of these words in your response: {forbidden_terms}"
+
         def mask_keywords(q):
             for word in set(direct_answer.replace(',', '').replace('.', '').split()):
-                if len(word) > 3:  # Only mask longer words (likely to be key terms)
+                if len(word) > 3:
                     q = q.replace(word, "____")
             return q
-        hint_questions = "\n".join(
-            f"  - {mask_keywords(q)}" for q in analysis.get("related_questions", [])
-        )
-        # Also mask keywords in the student question context
+
         masked_question = session.original_question
         for word in set(direct_answer.replace(',', '').replace('.', '').split()):
             if len(word) > 3:
                 masked_question = masked_question.replace(word, "____")
-        ctx_block = "\n".join([
-            f"TURN: {session.turn_count} of 2 (hint turns)",
-            f"STUDENT QUESTION BEING TUTORED: {masked_question}",
-            "",
-            "HINT QUESTIONS — pick the most fitting one and rephrase if needed:",
-            hint_questions,
-            "",
-            "STUDENT'S ATTEMPT THIS TURN:",
-            student_message,
-            "",
-            f"QUALITY: {analysis.get('student_answer_quality', 'unanswered')}",
-            f"PROXIMITY: {analysis.get('proximity_score', 0)}/100",
-            analysis.get("attempt_summary") or "",
-        ])
+
+        if session.turn_count == 1:
+            # Turn 1: no prior exchange — use static hint questions as scaffolding
+            hint_questions = "\n".join(
+                f"  - {mask_keywords(q)}" for q in analysis.get("related_questions", [])
+            )
+            ctx_block = "\n".join([
+                forbidden_line,
+                "",
+                "TURN: 1 of 2 (first hint)",
+                f"STUDENT QUESTION: {masked_question}",
+                "",
+                "OPENING HINT QUESTIONS — pick the most fitting one and rephrase if needed:",
+                hint_questions,
+                "",
+                "STUDENT'S ATTEMPT THIS TURN:",
+                student_message,
+                "",
+                f"QUALITY: {analysis.get('student_answer_quality', 'unanswered')}",
+                f"PROXIMITY: {analysis.get('proximity_score', 0)}/100",
+                analysis.get("attempt_summary") or "",
+            ])
+        else:
+            # Turn 2: build on the student's turn-1 response and the first hint
+            prev_hint = ""
+            for msg in reversed(session.conversation):
+                if msg["role"] == "assistant":
+                    prev_hint = msg["content"]
+                    break
+
+            ctx_block = "\n".join([
+                forbidden_line,
+                "",
+                "TURN: 2 of 2 (final hint — answer revealed next turn)",
+                f"STUDENT QUESTION: {masked_question}",
+                "",
+                "YOUR PREVIOUS HINT (do NOT repeat this angle):",
+                prev_hint or "No previous hint.",
+                "",
+                "STUDENT'S RESPONSE TO YOUR HINT:",
+                student_message,
+                "",
+                f"QUALITY: {analysis.get('student_answer_quality', 'unanswered')}",
+                f"PROXIMITY: {analysis.get('proximity_score', 0)}/100",
+                analysis.get("attempt_summary") or "",
+                "",
+                "INSTRUCTION: Ask ONE follow-up question that directly reacts to the student's "
+                "response above. If they were partially right, push deeper on what they got right. "
+                "If they were wrong or off-track, redirect from a different angle. "
+                "Do NOT repeat the same angle as your previous hint. "
+                "Do NOT confirm whether the student's answer is correct — that happens on turn 3.",
+            ])
 
     elif phase == "reveal":
         system = _REVEAL_SYSTEM

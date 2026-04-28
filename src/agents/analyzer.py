@@ -26,6 +26,50 @@ from src.llm import llm_chat
 # Shared: robust JSON extractor (used by both stages)
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _close_json(text: str) -> str:
+    """Append missing closing brackets/braces to truncated JSON output."""
+    stack = []
+    in_string = False
+    escape_next = False
+    for ch in text:
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\" and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]" and stack and stack[-1] == ch:
+            stack.pop()
+    return text + "".join(reversed(stack))
+
+
+def _quote_unquoted_values(text: str) -> str:
+    """
+    Quote bare string values that the LLM forgot to wrap in quotes.
+    e.g.  "direct_answer": Insufficient context,
+      →   "direct_answer": "Insufficient context",
+    Numbers, booleans, null, arrays, and objects are left untouched.
+    """
+    def repl(m):
+        return f'{m.group(1)}: "{m.group(2).strip()}"'
+
+    return re.sub(
+        r'("[\w_]+")\s*:\s*'           # "key":
+        r'(?!["\[{\d\-]'               # not already a string/array/object/number
+        r'|true\b|false\b|null\b)'     # not a boolean or null
+        r'([^\n\[{},]+)',              # bare value up to delimiter
+        repl,
+        text,
+    )
+
+
 def _extract_json(raw: str, fallback: dict) -> dict:
     """
     Multi-pass extraction handling every common LLM failure mode:
@@ -33,7 +77,9 @@ def _extract_json(raw: str, fallback: dict) -> dict:
       2. Markdown-fenced  ```json ... ```
       3. JSON buried in prose — find outermost { }
       4. Trailing-comma / JS-comment cleanup
-      5. Unrecoverable → return fallback
+      5. Quote unquoted string values  (e.g. "key": Some text)
+      6. Close truncated JSON          (missing ] or } at end)
+      7. Unrecoverable → return fallback
     """
     text = raw.strip()
 
@@ -49,15 +95,30 @@ def _extract_json(raw: str, fallback: dict) -> dict:
         except json.JSONDecodeError:
             pass
 
-    brace = re.search(r"\{[\s\S]*\}", text)
+    # Use the largest {...} block found, even if the JSON was cut off
+    brace = re.search(r"\{[\s\S]*", text)
     if brace:
         candidate = brace.group(0)
+
+        # Pass 4: trailing commas + JS comments
+        candidate = re.sub(r",\s*([}\]])", r"\1", candidate)
+        candidate = re.sub(r"//[^\n]*", "", candidate)
         try:
             return json.loads(candidate)
         except json.JSONDecodeError:
             pass
-        candidate = re.sub(r",\s*([}\]])", r"\1", candidate)  # trailing commas
-        candidate = re.sub(r"//[^\n]*", "", candidate)         # JS comments
+
+        # Pass 5: quote unquoted string values
+        candidate = _quote_unquoted_values(candidate)
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
+        # Pass 6: close truncated JSON then retry both fixes
+        candidate = _close_json(candidate)
+        candidate = re.sub(r",\s*([}\]])", r"\1", candidate)
+        candidate = _quote_unquoted_values(candidate)
         try:
             return json.loads(candidate)
         except json.JSONDecodeError:
@@ -128,7 +189,7 @@ def run_initializer(original_question: str, context: str) -> dict:
         "Output the JSON object now.",
     ])
 
-    raw    = llm_chat(_INIT_SYSTEM, [{"role": "user", "content": prompt}], max_tokens=1024)
+    raw    = llm_chat(_INIT_SYSTEM, [{"role": "user", "content": prompt}], max_tokens=2048)
     result = _extract_json(raw, _INIT_FALLBACK)
 
     # Fill any missing keys

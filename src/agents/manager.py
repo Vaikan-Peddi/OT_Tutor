@@ -249,7 +249,15 @@ class ManagerAgent:
             return True
         if self.session.turn_count < 2:
             return False
-        followup_starters = {"but", "and", "so", "also", "what about", "why", "how", "ok", "okay"}
+        # Once past tutoring phase the student is mid-scenario — never auto-switch topics.
+        # Only /new (handled upstream) can start a fresh session at that point.
+        if self.session.phase != "tutoring":
+            return False
+        followup_starters = {
+            "but", "and", "so", "also", "what about", "why", "how", "ok", "okay",
+            "it", "is", "are", "will", "would", "could", "should", "does", "do",
+            "can", "that", "this", "then", "if", "when",
+        }
         lowered = message.lower().strip()
         starts_followup = any(lowered.startswith(w) for w in followup_starters)
         return message.strip().endswith("?") and not starts_followup
