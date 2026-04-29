@@ -253,6 +253,8 @@ class ManagerAgent:
         # Only /new (handled upstream) can start a fresh session at that point.
         if self.session.phase != "tutoring":
             return False
+        if len(message.strip()) > 120:
+            return False
         followup_starters = {
             "but", "and", "so", "also", "what about", "why", "how", "ok", "okay",
             "it", "is", "are", "will", "would", "could", "should", "does", "do",

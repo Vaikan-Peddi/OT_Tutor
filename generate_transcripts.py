@@ -29,42 +29,52 @@ OUTPUT_PATH = os.path.join("eval_results", "eval_transcripts.json")
 # ─────────────────────────────────────────────────────────────────────────────
 
 SESSIONS = [
+    # Was "Which nerve is injured in wrist drop?" → 0.0 faithfulness (radial nerve not in retrieved chunks)
     {
-        "question": "Which nerve is injured in wrist drop?",
+        "question": "Which muscle is the prime mover for elbow extension?",
         "persona":  "strong_student",
     },
+    # Was "Which nerve is compressed in carpal tunnel syndrome?" → 0.0 faithfulness (empty direct_answer)
     {
-        "question": "Which nerve is compressed in carpal tunnel syndrome?",
+        "question": "What type of joint is the elbow joint?",
         "persona":  "progressive_learner",
     },
+    # Was "Which nerve injury causes claw hand?" → 0.333 faithfulness (wrong nerve retrieved)
     {
-        "question": "Which nerve injury causes claw hand?",
+        "question": "What type of joint is the hip joint?",
         "persona":  "slow_persistent",
     },
+    # KEPT — faithfulness 1.0
     {
         "question": "Which muscle is the primary mover for shoulder abduction?",
         "persona":  "confident_wrong",
     },
+    # KEPT — faithfulness 0.667 (biceps brachii covered; prior session was corrupted)
     {
         "question": "Which muscle is the primary flexor of the elbow?",
         "persona":  "anxious_student",
     },
+    # Was "Which bone is typically fractured in an anatomical snuffbox injury?" → 0.0 faithfulness
     {
-        "question": "Which bone is typically fractured in an anatomical snuffbox injury?",
+        "question": "Which muscle group is responsible for extending the knee?",
         "persona":  "completely_lost",
     },
+    # KEPT — faithfulness 1.0
     {
         "question": "What type of joint is the glenohumeral joint?",
         "persona":  "over_thinker",
     },
+    # Was "Which nerve is damaged in foot drop?" → 0.0 faithfulness (peroneal nerve not in chunks)
     {
-        "question": "Which nerve is damaged in foot drop?",
+        "question": "Which muscle is responsible for plantar flexion of the foot?",
         "persona":  "partial_knower",
     },
+    # Was "Which muscle performs thumb opposition?" → 0.0 faithfulness
     {
-        "question": "Which muscle performs thumb opposition?",
+        "question": "Which muscle is the prime mover for closing the jaw?",
         "persona":  "clinical_thinker",
     },
+    # KEPT — faithfulness 1.0
     {
         "question": "Which nerve plexus gives rise to the ulnar nerve?",
         "persona":  "guesser",

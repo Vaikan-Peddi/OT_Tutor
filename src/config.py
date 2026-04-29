@@ -36,11 +36,11 @@ CHUNK_SIZE    = 512
 CHUNK_OVERLAP = 50
 
 # ── Retrieval ──────────────────────────────────────────────────────────────
-DEFAULT_K = 3          # top-k passages per query
+DEFAULT_K = 4          # top-k passages per query
 
 # ── Session / tutoring ─────────────────────────────────────────────────────
 REVEAL_TURN_THRESHOLD = 4   # /reveal unlocks after this many turns
-MAX_TOKENS_LLM        = 512
+MAX_TOKENS_LLM        = 2048
 
 # ── Eval ───────────────────────────────────────────────────────────────────
 EVAL_OUTPUT_DIR = ROOT_DIR / "eval_results"
