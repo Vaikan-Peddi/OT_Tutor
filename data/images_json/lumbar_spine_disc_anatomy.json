@@ -1,0 +1,36 @@
+{
+  "filename": "lumbar_spine_disc_anatomy.png",
+  "license": "Public Domain (Gray's Anatomy, 1918)",
+  "title": "Lumbar Vertebrae and Intervertebral Disc – Sagittal View",
+  "structures": [
+    "lumbar vertebral body (L1–L5)",
+    "intervertebral disc",
+    "nucleus pulposus",
+    "annulus fibrosus",
+    "vertebral end plate",
+    "pedicle",
+    "lamina",
+    "spinous process",
+    "transverse process",
+    "superior articular process",
+    "inferior articular process",
+    "facet joint",
+    "intervertebral foramen",
+    "ligamentum flavum",
+    "posterior longitudinal ligament",
+    "anterior longitudinal ligament"
+  ],
+  "labels": [
+    "lumbar spine",
+    "L-spine",
+    "disc herniation site",
+    "lordotic curve",
+    "weight-bearing column",
+    "nucleus pulposus"
+  ],
+  "region": "low back / spine",
+  "topic": "lumbar spine and disc anatomy",
+  "description": "Sagittal section from Gray's Anatomy of lumbar vertebrae and intervertebral discs showing the nucleus pulposus centrally within the annulus fibrosus, the spinal ligaments, and the large vertebral bodies designed for weight bearing. The posterior facet joints guide and limit lumbar motion.",
+  "clinical_notes": "L4–L5 and L5–S1 are most common herniation levels. OT role: body mechanics education, back school programs, ergonomic assessment, adaptive equipment for ADL with lumbar restrictions, seated posture and seating assessment.",
+  "openstax_chapter": "Chapter 7 – The Axial Skeleton (Unit 2: Support and Movement)"
+}

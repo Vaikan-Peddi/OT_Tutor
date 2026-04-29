@@ -75,6 +75,16 @@ def run_tutor(student_message: str, analysis: dict, session) -> str:
     """
     phase = session.phase
 
+    # ── Image-session prefix (injected into every context block) ─────────
+    image_prefix = ""
+    if getattr(session, "image_mode", False):
+        identified_as = getattr(session, "image_identified_as", "") or "anatomical diagram"
+        image_prefix = (
+            f"[IMAGE SESSION] The student uploaded a diagram. "
+            f"Gemini Vision identified it as: {identified_as}. "
+            f"Frame your response around this specific diagram.\n\n"
+        )
+
     # ── Build the user-side context block (hidden from student) ──────────
     if phase == "tutoring":
         system = _HINT_SYSTEM
@@ -191,7 +201,8 @@ def run_tutor(student_message: str, analysis: dict, session) -> str:
             "role": "user",
             "content": (
                 f"{student_message}\n\n"
-                f"[TUTOR CONTEXT — internal only, not visible to student]\n{ctx_block}"
+                f"[TUTOR CONTEXT — internal only, not visible to student]\n"
+                f"{image_prefix}{ctx_block}"
             ),
         }
     ]

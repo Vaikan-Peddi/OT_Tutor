@@ -1,0 +1,32 @@
+{
+  "id": 27,
+  "filename": "basal_ganglia_cerebellum.png",
+  "license": "CC BY 4.0 (OpenStax)",
+  "title": "Basal Ganglia (Basal Nuclei)",
+  "structures": [
+    "caudate nucleus",
+    "putamen",
+    "striatum (caudate + putamen)",
+    "globus pallidus (internal and external)",
+    "substantia nigra (pars compacta and pars reticulata)",
+    "subthalamic nucleus",
+    "thalamus",
+    "internal capsule",
+    "dopaminergic nigrostriatal pathway",
+    "direct pathway",
+    "indirect pathway"
+  ],
+  "labels": [
+    "basal ganglia",
+    "extrapyramidal system",
+    "motor loop",
+    "Parkinson's disease circuit",
+    "Huntington's disease",
+    "dopamine"
+  ],
+  "region": "brain / subcortical",
+  "topic": "basal ganglia anatomy",
+  "description": "OpenStax coronal section diagram showing the basal nuclei (striatum, globus pallidus, subthalamic nucleus, substantia nigra) and their relationship to the thalamus and internal capsule, illustrating the direct and indirect pathways that modulate motor cortex output for smooth, coordinated movement.",
+  "clinical_notes": "Parkinson's disease: dopaminergic neuron loss in substantia nigra → basal ganglia circuit dysregulation → bradykinesia, rigidity, tremor. OT role: handwriting adaptations (micrographia), fall prevention, freezing management, ADL strategies, visual cueing for gait.",
+  "openstax_chapter": "Chapter 13 – The Anatomy of the Nervous System (Unit 3)"
+}

@@ -55,6 +55,12 @@ class QuestionSession:
     clinical_scenario : str  = ""
     related_questions : list = field(default_factory=list)
 
+    # ── Image / multimodal session ─────────────────────────────────────────
+    image_mode          : bool = False
+    image_mime_type     : str  = ""
+    image_identified_as : str  = ""   # e.g. "Brachial Plexus Diagram"
+    image_source        : str  = ""   # "stored" | "vlm"
+
     # ── Conversation history (LLM format) ─────────────────────────────────
     conversation : list = field(default_factory=list)
 
@@ -95,15 +101,18 @@ class QuestionSession:
 
     def to_db_record(self) -> dict:
         return {
-            "session_id"       : self.session_id,
-            "original_question": self.original_question,
-            "started_at"       : self.started_at,
-            "topic_label"      : self.topic_label,
-            "turn_count"       : self.turn_count,
-            "final_phase"      : self.phase,
-            "attempts"         : self.attempts,
-            "mistakes"         : self.mistakes,
-            "direct_answer"    : self.direct_answer,
+            "session_id"          : self.session_id,
+            "original_question"   : self.original_question,
+            "started_at"          : self.started_at,
+            "topic_label"         : self.topic_label,
+            "turn_count"          : self.turn_count,
+            "final_phase"         : self.phase,
+            "attempts"            : self.attempts,
+            "mistakes"            : self.mistakes,
+            "direct_answer"       : self.direct_answer,
+            "image_mode"          : self.image_mode,
+            "image_identified_as" : self.image_identified_as,
+            "image_source"        : self.image_source,
         }
 
 
@@ -134,8 +143,22 @@ class ManagerAgent:
 
     # ── Called for every student message ──────────────────────────────────
 
-    def handle_turn(self, student_message: str) -> str:
-        """Process one student message and return the agent's reply."""
+    def handle_turn(
+        self,
+        student_message: str,
+        image_bytes: bytes | None = None,
+        mime_type: str = "image/png",
+    ) -> str:
+        """
+        Process one student message (and optional image) and return the agent's reply.
+
+        Args:
+            student_message: raw text from the student (may be empty if image-only).
+            image_bytes:     raw image bytes on the FIRST turn of an image session.
+                             Pass None on all subsequent turns — the session already
+                             knows it is in image_mode.
+            mime_type:       MIME type of the uploaded image (default "image/png").
+        """
         from src.agents.tutor   import run_tutor
         from src.agents.mastery import run_mastery
 
@@ -143,18 +166,26 @@ class ManagerAgent:
         if student_message.strip().lower() in ("/mastery", "/reveal"):
             return self._handle_mastery(run_mastery)
 
+        has_image = image_bytes is not None
+
         # ── Awaiting first question after rapport ─────────────────────────
         if self._awaiting_question:
             self._awaiting_question = False
-            self.session = self._open_session(student_message)
+            self.session = self._open_session(
+                student_message, has_image=has_image, mime_type=mime_type
+            )
 
         # ── New question mid-conversation ─────────────────────────────────
         elif self._is_new_question(student_message):
-            self.session = self._open_session(student_message)
+            self.session = self._open_session(
+                student_message, has_image=has_image, mime_type=mime_type
+            )
 
         # ── Edge case: handle_turn called before start_session ────────────
         elif self.session is None:
-            self.session = self._open_session(student_message)
+            self.session = self._open_session(
+                student_message, has_image=has_image, mime_type=mime_type
+            )
 
         session = self.session
         session.turn_count += 1
@@ -163,16 +194,34 @@ class ManagerAgent:
         if session.turn_count >= REVEAL_TURN_THRESHOLD:
             session.mastery_unlocked = True
 
-        # ── First turn: RAG retrieval + Initializer ───────────────────────
+        # ── First turn: initialise knowledge (image or text RAG path) ────────
         if not session.retrieved_context:
-            ctx, srcs = retrieve_context(session.original_question)
-            session.retrieved_context = ctx
-            session.retrieved_sources = srcs
+            if session.image_mode and image_bytes is not None:
+                # ── Vision path ──────────────────────────────────────────────
+                from src.agents.vision import run_vision_initializer
+                init = run_vision_initializer(
+                    image_bytes   = image_bytes,
+                    mime_type     = session.image_mime_type or mime_type,
+                    text_question = session.original_question,
+                )
+                # Store a compact sentinel so retrieved_context is truthy
+                session.retrieved_context  = (
+                    f"[image:{init.get('image_identified_as', 'diagram')} "
+                    f"source:{init.get('image_source', 'vlm')}]"
+                )
+                session.retrieved_sources  = init.get("image_rag_sources", [])
+                session.image_identified_as = init.get("image_identified_as", "")
+                session.image_source        = init.get("image_source", "vlm")
+            else:
+                # ── Text RAG path (unchanged) ────────────────────────────────
+                ctx, srcs = retrieve_context(session.original_question)
+                session.retrieved_context = ctx
+                session.retrieved_sources = srcs
+                init = run_initializer(
+                    original_question = session.original_question,
+                    context           = session.retrieved_context,
+                )
 
-            init = run_initializer(
-                original_question = session.original_question,
-                context           = session.retrieved_context,
-            )
             session.direct_answer     = init["direct_answer"]
             session.clinical_scenario = init["clinical_scenario"]
             session.related_questions = init["related_questions"]
@@ -239,10 +288,19 @@ class ManagerAgent:
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
-    def _open_session(self, question: str) -> QuestionSession:
+    def _open_session(
+        self,
+        question: str,
+        has_image: bool = False,
+        mime_type: str = "",
+    ) -> QuestionSession:
         if self.session:
             self.global_history.append(self.session.to_db_record())
-        return QuestionSession(original_question=question)
+        session = QuestionSession(original_question=question)
+        if has_image:
+            session.image_mode      = True
+            session.image_mime_type = mime_type or "image/png"
+        return session
 
     def _is_new_question(self, message: str) -> bool:
         if self.session is None:

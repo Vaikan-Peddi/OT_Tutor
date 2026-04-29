@@ -1,0 +1,33 @@
+ {
+    "filename": "rotator_cuff_muscles.png",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Gray412.png/550px-Gray412.png",
+    "wikimedia_page": "https://commons.wikimedia.org/wiki/File:Gray412.png",
+    "license": "Public Domain (Gray's Anatomy, 1918)",
+    "title": "Rotator Cuff Muscles – Posterior View",
+    "structures": [
+      "infraspinatus",
+      "teres minor",
+      "teres major",
+      "supraspinatus",
+      "subscapularis (deep, not visible posteriorly)",
+      "greater tuberosity of humerus",
+      "lesser tuberosity of humerus",
+      "scapula spine",
+      "infraspinous fossa",
+      "supraspinous fossa",
+      "axillary nerve",
+      "posterior circumflex humeral artery"
+    ],
+    "labels": [
+      "SITS muscles",
+      "rotator cuff",
+      "lateral rotators",
+      "shoulder stabilizers",
+      "posterior shoulder"
+    ],
+    "region": "shoulder / upper limb",
+    "topic": "rotator cuff anatomy",
+    "description": "Posterior view from Gray's Anatomy illustrating the rotator cuff muscles (particularly infraspinatus and teres minor) originating from the scapula and inserting onto the greater tuberosity of the humerus, showing the relationship with the axillary nerve in the quadrangular space.",
+    "clinical_notes": "Supraspinatus is most commonly torn. Infraspinatus and teres minor are assessed with external rotation strength tests (ER lag sign). OT relevance: post-surgical precautions (no active abduction/ER), ergonomic work setup for chronic shoulder pain.",
+    "openstax_chapter": "Chapter 11 – The Muscular System (Unit 2: Support and Movement)"
+  }

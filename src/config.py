@@ -44,3 +44,9 @@ MAX_TOKENS_LLM        = 2048
 
 # ── Eval ───────────────────────────────────────────────────────────────────
 EVAL_OUTPUT_DIR = ROOT_DIR / "eval_results"
+
+# ── Vision / Multimodal ───────────────────────────────────────────────────────
+GEMINI_API_KEY        = os.getenv("GEMINI_API_KEY", "")
+VISION_MODEL          = os.getenv("VISION_MODEL", "gemini-2.5-flash")
+IMAGES_DIR            = DATA_DIR / "images_json"
+IMAGE_MATCH_THRESHOLD = float(os.getenv("IMAGE_MATCH_THRESHOLD", "0.55"))

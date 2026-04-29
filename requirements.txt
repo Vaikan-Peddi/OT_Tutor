@@ -6,3 +6,5 @@ openai
 anthropic
 python-dotenv
 numpy
+google-generativeai
+Pillow

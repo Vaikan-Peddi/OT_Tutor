@@ -1,0 +1,21 @@
+{
+  "filename": "brachial_plexus.png",
+  "title": "Brachial Plexus Diagram",
+  "structures": [
+    "C5 nerve root", "C6 nerve root", "C7 nerve root", "C8 nerve root", "T1 nerve root",
+    "upper trunk", "middle trunk", "lower trunk",
+    "anterior division", "posterior division",
+    "lateral cord", "medial cord", "posterior cord",
+    "musculocutaneous nerve", "median nerve", "ulnar nerve",
+    "radial nerve", "axillary nerve"
+  ],
+  "labels": [
+    "brachial plexus", "roots", "trunks", "divisions", "cords", "terminal branches",
+    "ventral rami", "upper extremity innervation"
+  ],
+  "region": "upper limb",
+  "topic": "brachial plexus anatomy",
+  "description": "Diagram showing the brachial plexus formed from the ventral rami of C5 through T1 nerve roots, organized into roots, trunks (upper, middle, lower), anterior and posterior divisions, lateral/medial/posterior cords, and five terminal branches innervating the upper extremity.",
+  "clinical_notes": "Erb's palsy (C5-C6 injury) causes the waiter's tip position — shoulder adducted, arm medially rotated, elbow extended. Klumpke's palsy (C8-T1) causes claw hand and may present with Horner's syndrome. Mnemonic for cords: 'My Lateral Cord Makes People Comfortable' (Musculocutaneous, Lateral pectoral, Median contributed, Posterior cord, Medial).",
+  "openstax_chapter": "Chapter 13 – The Anatomy of the Nervous System (Unit 3: Regulation, Integration, and Control)"
+}

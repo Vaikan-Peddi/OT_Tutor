@@ -1,0 +1,33 @@
+ {
+    "filename": "shoulder_joint_glenohumeral.png",
+    "license": "Public Domain (Gray's Anatomy, 1918)",
+    "title": "Glenohumeral (Shoulder) Joint – Coronal Section",
+    "structures": [
+      "glenohumeral joint cavity",
+      "glenoid cavity",
+      "glenoid labrum",
+      "head of humerus",
+      "articular cartilage",
+      "joint capsule",
+      "coracoacromial ligament",
+      "supraspinatus tendon",
+      "biceps tendon (long head)",
+      "acromion",
+      "clavicle",
+      "coracoid process",
+      "scapula"
+    ],
+    "labels": [
+      "shoulder joint",
+      "ball-and-socket joint",
+      "rotator cuff attachment site",
+      "subacromial space",
+      "glenohumeral ligaments",
+      "synovial membrane"
+    ],
+    "region": "shoulder / upper limb",
+    "topic": "glenohumeral joint anatomy",
+    "description": "Coronal section of the glenohumeral joint from Gray's Anatomy showing the ball-and-socket articulation between the humeral head and the glenoid cavity of the scapula, reinforced by the glenoid labrum, joint capsule, and supraspinatus tendon passing beneath the acromion.",
+    "clinical_notes": "The subacromial space (between supraspinatus and acromion) is the site of impingement syndrome. OT relevance: shoulder range of motion assessment, ADL adaptations for limited shoulder abduction, positioning after rotator cuff repair.",
+    "openstax_chapter": "Chapter 9 – Joints (Unit 2: Support and Movement)"
+  }
