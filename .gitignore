@@ -20,3 +20,6 @@ data/*.pdf
 # Jupyter leftovers
 .ipynb_checkpoints/
 *.ipynb
+
+
+web/frontend/node_modules/

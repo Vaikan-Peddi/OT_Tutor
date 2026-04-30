@@ -8,3 +8,7 @@ python-dotenv
 numpy
 google-generativeai
 Pillow
+fastapi
+uvicorn[standard]
+sqlalchemy
+python-multipart
