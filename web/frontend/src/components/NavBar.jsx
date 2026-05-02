@@ -1,44 +1,80 @@
+import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { createSession } from '../api'
 
 export default function NavBar({ onSessionCreated }) {
-  const location = useLocation()
-  const navigate = useNavigate()
+  const location  = useLocation()
+  const navigate  = useNavigate()
+  const [error,    setError]    = useState(null)
+  const [creating, setCreating] = useState(false)
 
   const handleNew = async () => {
+    setError(null)
+    setCreating(true)
     try {
       const res = await createSession()
       navigate(`/chat/${res.data.session_id}`)
       if (onSessionCreated) onSessionCreated()
     } catch (err) {
-      console.error('Failed to create session', err)
+      const detail = err.response?.data?.detail || 'Failed to start session. Is the server running?'
+      setError(detail)
+    } finally {
+      setCreating(false)
     }
   }
 
   const linkClass = (path) =>
-    `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+    `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
       location.pathname.startsWith(path)
-        ? 'bg-blue-50 text-blue-700'
-        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+        ? 'bg-white/20 text-white'
+        : 'text-blue-100 hover:text-white hover:bg-white/10'
     }`
 
   return (
-    <header className="h-14 shrink-0 flex items-center px-6 bg-white border-b border-gray-200 z-10">
-      <span className="text-blue-700 font-bold text-lg tracking-tight mr-8 select-none">
-        OT Tutor
-      </span>
+    <header className="shrink-0 bg-ub-blue z-10 shadow-md">
+      <div className="h-14 flex items-center gap-6 px-5">
+        {/* Logo — inverted to white for the blue navbar */}
+        <img
+          src="/ub-logo.png"
+          alt="University at Buffalo"
+          className="h-8 w-auto"
+          style={{ filter: 'brightness(0) invert(1)' }}
+        />
 
-      <nav className="flex gap-1 flex-1">
-        <Link to="/chat" className={linkClass('/chat')}>Chat</Link>
-        <Link to="/dashboard" className={linkClass('/dashboard')}>Dashboard</Link>
-      </nav>
+        <div className="h-6 w-px bg-white/20" />
 
-      <button
-        onClick={handleNew}
-        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-medium rounded-lg transition-colors"
-      >
-        + New Session
-      </button>
+        <nav className="flex gap-1">
+          <Link to="/chat"      className={linkClass('/chat')}>Chat</Link>
+          <Link to="/dashboard" className={linkClass('/dashboard')}>Dashboard</Link>
+        </nav>
+
+        <div className="flex-1" />
+
+        <button
+          onClick={handleNew}
+          disabled={creating}
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-white/15 hover:bg-white/25 border border-white/30 hover:border-white/50 disabled:opacity-60 disabled:cursor-wait text-white text-sm font-semibold rounded-lg transition-colors"
+        >
+          {creating ? (
+            'Starting…'
+          ) : (
+            <>
+              <span className="text-base leading-none">+</span>
+              New Session
+            </>
+          )}
+        </button>
+      </div>
+
+      {error && (
+        <div className="flex items-center justify-between bg-red-900/80 border-t border-red-700 px-5 py-2">
+          <p className="text-white text-sm">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-300 hover:text-white text-lg leading-none ml-4"
+          >×</button>
+        </div>
+      )}
     </header>
   )
 }

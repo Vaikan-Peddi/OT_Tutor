@@ -1,6 +1,7 @@
 import uuid
 import datetime
 import asyncio
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -11,6 +12,7 @@ from ..models import Session, Message, Attempt, Mistake
 from ..agent_store import create_agent, get_agent, remove_agent
 
 router = APIRouter(tags=["sessions"])
+logger = logging.getLogger(__name__)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -38,7 +40,14 @@ def _sync_db_session(db_sess: Session, q_sess) -> None:
     db_sess.image_mode = q_sess.image_mode
     if q_sess.image_identified_as:
         db_sess.image_identified_as = q_sess.image_identified_as
-    scores = [a["proximity_score"] for a in q_sess.attempts if a.get("proximity_score") is not None]
+
+
+def _finalize_session_score(db_sess: Session, q_sess) -> None:
+    """Compute final avg_score from assessment-phase attempts only. Called once at mastery."""
+    scores = [
+        a["proximity_score"] for a in q_sess.attempts
+        if a.get("phase") == "assessment" and a.get("proximity_score") is not None
+    ]
     if scores:
         db_sess.avg_score = round(sum(scores) / len(scores), 1)
 
@@ -72,6 +81,7 @@ def create_session(db: DBSession = Depends(get_db)):
         greeting = agent.start_session()
     except Exception as exc:
         remove_agent(session_id)
+        logger.exception("start_session failed for session %s", session_id)
         raise HTTPException(status_code=500, detail=str(exc))
 
     db_sess = Session(
@@ -149,6 +159,7 @@ async def chat(
             None, lambda: agent.handle_turn(message, image_bytes, mime_type)
         )
     except Exception as exc:
+        logger.exception("handle_turn failed for session %s", session_id)
         raise HTTPException(status_code=500, detail=str(exc))
 
     q_sess = agent.session
@@ -187,6 +198,16 @@ async def chat(
 
     db.commit()
 
+    # Compute running score from all attempts so far (shown live in the UI)
+    current_score = None
+    if q_sess and q_sess.attempts:
+        scores = [
+            a["proximity_score"] for a in q_sess.attempts
+            if a.get("proximity_score") is not None
+        ]
+        if scores:
+            current_score = round(sum(scores) / len(scores), 1)
+
     return {
         "reply": reply,
         "phase": q_sess.phase if q_sess else db_sess.phase,
@@ -194,6 +215,7 @@ async def chat(
         "mastery_unlocked": q_sess.mastery_unlocked if q_sess else db_sess.mastery_unlocked,
         "mastery_done": q_sess.mastery_done if q_sess else db_sess.mastery_done,
         "topic_label": (q_sess.topic_label if q_sess else db_sess.topic_label),
+        "current_score": current_score,
     }
 
 
@@ -215,11 +237,13 @@ async def mastery(session_id: str, db: DBSession = Depends(get_db)):
     try:
         reply = await loop.run_in_executor(None, lambda: agent.handle_turn("/mastery"))
     except Exception as exc:
+        logger.exception("mastery failed for session %s", session_id)
         raise HTTPException(status_code=500, detail=str(exc))
 
     q_sess = agent.session
     if q_sess:
         _sync_db_session(db_sess, q_sess)
+        _finalize_session_score(db_sess, q_sess)
 
     db_sess.mastery_text = reply
     db_sess.mastery_done = True

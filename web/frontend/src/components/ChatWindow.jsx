@@ -3,28 +3,47 @@ import MessageBubble from './MessageBubble'
 import InputArea from './InputArea'
 
 const PHASE_META = {
-  tutoring:   { label: 'Socratic Hints',      color: 'bg-amber-100 text-amber-800' },
-  reveal:     { label: 'Answer Revealed',     color: 'bg-blue-100 text-blue-800' },
-  assessment: { label: 'Clinical Assessment', color: 'bg-purple-100 text-purple-800' },
-  mastery:    { label: 'Mastery Complete',    color: 'bg-emerald-100 text-emerald-800' },
+  tutoring:   { label: 'Socratic Hints',      color: 'bg-amber-50   text-amber-700   border border-amber-200' },
+  reveal:     { label: 'Answer Revealed',     color: 'bg-blue-50    text-ub-blue     border border-blue-200'  },
+  assessment: { label: 'Clinical Assessment', color: 'bg-purple-50  text-purple-700  border border-purple-200'},
+  mastery:    { label: 'Mastery Complete',    color: 'bg-ub-gold/10 text-ub-gold-dk  border border-ub-gold/30'},
 }
 
+
 function PhaseIndicator({ phase }) {
-  const { label, color } = PHASE_META[phase] || { label: phase, color: 'bg-gray-100 text-gray-700' }
+  const { label, color } = PHASE_META[phase] || { label: phase, color: 'bg-gray-100 text-gray-500 border border-gray-200' }
   return (
     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${color}`}>{label}</span>
   )
 }
 
+
 function TypingDots() {
   return (
-    <div className="flex justify-start">
-      <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-        <div className="flex gap-1 items-center h-4">
-          {[0, 150, 300].map((delay) => (
+    <div className="flex gap-3">
+      <div className="w-7 h-7 rounded-full bg-ub-blue flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+        <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+          <line x1="10" y1="2" x2="10" y2="5" stroke="#FFB81C" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="10" cy="1.5" r="1" fill="#FFB81C"/>
+          <rect x="4" y="5" width="12" height="9" rx="2.5" fill="white" fillOpacity="0.92"/>
+          <circle cx="7.5" cy="9" r="1.4" fill="#005BBB"/>
+          <circle cx="12.5" cy="9" r="1.4" fill="#005BBB"/>
+          <circle cx="7.9" cy="8.6" r="0.45" fill="white"/>
+          <circle cx="12.9" cy="8.6" r="0.45" fill="white"/>
+          <rect x="7" y="11.5" width="6" height="1" rx="0.5" fill="#005BBB" fillOpacity="0.5"/>
+          <rect x="2.5" y="7.5" width="1.5" height="3" rx="0.75" fill="white" fillOpacity="0.6"/>
+          <rect x="16" y="7.5" width="1.5" height="3" rx="0.75" fill="white" fillOpacity="0.6"/>
+          <rect x="6" y="14.5" width="8" height="4" rx="1.5" fill="white" fillOpacity="0.7"/>
+          <rect x="8.25" y="15.2" width="1.2" height="2.5" rx="0.6" fill="#FFB81C" fillOpacity="0.8"/>
+          <rect x="10.55" y="15.2" width="1.2" height="2.5" rx="0.6" fill="#FFB81C" fillOpacity="0.8"/>
+        </svg>
+      </div>
+      <div className="pt-2">
+        <div className="flex gap-1 items-center">
+          {[0, 160, 320].map((delay) => (
             <span
               key={delay}
-              className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+              className="w-2 h-2 bg-gray-300 rounded-full animate-bounce"
               style={{ animationDelay: `${delay}ms` }}
             />
           ))}
@@ -49,89 +68,121 @@ export default function ChatWindow({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
+  // ── Empty state ───────────────────────────────────────────────────────
   if (!sessionId) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-xs px-4">
-          <p className="text-4xl mb-4">🦴</p>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Welcome to OT Tutor</h2>
-          <p className="text-gray-500 text-sm leading-relaxed">
-            Press <strong>+ New Session</strong> above to start a Socratic tutoring session, or pick
-            a previous one from the sidebar.
-          </p>
-        </div>
+      <div className="flex-1 flex flex-col items-center justify-center bg-white">
+        <img src="/ub-logo.png" alt="University at Buffalo" className="h-12 mb-6 opacity-90" />
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">OT Tutor</h2>
+        <p className="text-gray-400 text-sm text-center max-w-xs leading-relaxed">
+          A Socratic tutor for Occupational Therapy students at the University at Buffalo.
+        </p>
+        <p className="text-gray-400 text-sm mt-4">
+          Press <span className="font-semibold text-ub-blue">+ New Session</span> to begin.
+        </p>
       </div>
     )
   }
 
   const masteryAvailable = sessionState?.mastery_unlocked && !sessionState?.mastery_done
+  const isDone           = sessionState?.mastery_done
 
   return (
     <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
-      {/* Header */}
-      <div className="px-6 py-3 border-b border-gray-200 flex items-center gap-3 shrink-0">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-800 truncate">
-            {sessionState?.topic_label || sessionState?.question || `Session ${sessionId}`}
-          </p>
+
+      {/* Session header */}
+      <div className="shrink-0 flex items-center justify-between px-6 py-2.5 border-b border-gray-100 bg-white">
+        <p className="text-sm font-medium text-gray-700 truncate max-w-md">
+          {sessionState?.topic_label || sessionState?.question || `Session ${sessionId}`}
           {sessionState?.image_identified_as && (
-            <p className="text-xs text-gray-400 truncate">
-              Image: {sessionState.image_identified_as}
-            </p>
+            <span className="text-gray-400 font-normal ml-1.5">· {sessionState.image_identified_as}</span>
           )}
-        </div>
+        </p>
         <div className="flex items-center gap-2 shrink-0">
           {sessionState?.phase && <PhaseIndicator phase={sessionState.phase} />}
-          <span className="text-xs text-gray-400 tabular-nums">
-            Turn {sessionState?.turn_count ?? 0}
-          </span>
+          <span className="text-xs text-gray-400 tabular-nums">Turn {sessionState?.turn_count ?? 0}</span>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 scrollbar-thin">
-        {messages.map((msg, i) => (
-          <MessageBubble key={msg.id ?? i} message={msg} />
-        ))}
-        {loading && <TypingDots />}
-        <div ref={bottomRef} />
+      <div className="flex-1 overflow-y-auto scrollbar-thin bg-white">
+        <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+          {messages.map((msg, i) => (
+            <MessageBubble key={msg.id ?? i} message={msg} />
+          ))}
+          {loading && <TypingDots />}
+          <div ref={bottomRef} />
+        </div>
       </div>
 
-      {/* Footer: Mastery button + Input */}
-      <div className="border-t border-gray-200 px-6 pt-3 pb-4 shrink-0 space-y-2">
-        {/* Mastery row */}
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-gray-400">
-            {masteryAvailable
-              ? 'You have unlocked the mastery summary.'
-              : sessionState?.mastery_done
-              ? ''
-              : sessionState?.turn_count != null
-              ? `Mastery unlocks after turn ${4 - (sessionState.turn_count || 0) > 0 ? `${4 - sessionState.turn_count} more turn(s)` : 'now'}.`
-              : ''}
-          </p>
-          {(masteryAvailable || sessionState?.mastery_done) && (
-            <button
-              onClick={masteryAvailable ? onMastery : undefined}
-              disabled={masteryLoading || sessionState?.mastery_done}
-              className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors ${
-                sessionState?.mastery_done
-                  ? 'bg-emerald-100 text-emerald-700 cursor-default'
-                  : masteryLoading
-                  ? 'bg-emerald-100 text-emerald-600 cursor-wait'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              }`}
-            >
-              {sessionState?.mastery_done
-                ? '✓ Mastery Complete'
-                : masteryLoading
-                ? 'Generating…'
-                : 'Mastery Summary'}
-            </button>
-          )}
-        </div>
+      {/* Footer */}
+      <div className="shrink-0 bg-white border-t border-gray-100 px-4 pt-3 pb-4">
 
-        <InputArea onSend={onSend} disabled={loading || masteryLoading} />
+        {isDone ? (
+          /* ── Session complete — input locked ── */
+          <div className="max-w-2xl mx-auto">
+            <div className="flex items-center gap-4 px-5 py-4 bg-gradient-to-r from-ub-blue/5 to-ub-gold/5 border border-ub-gold/25 rounded-2xl">
+              <div className="w-10 h-10 rounded-full bg-ub-blue flex items-center justify-center shrink-0 shadow-sm">
+                <svg viewBox="0 0 20 20" fill="none" className="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+                  <line x1="10" y1="2" x2="10" y2="5" stroke="#FFB81C" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="10" cy="1.5" r="1" fill="#FFB81C"/>
+                  <rect x="4" y="5" width="12" height="9" rx="2.5" fill="white" fillOpacity="0.92"/>
+                  <circle cx="7.5" cy="9" r="1.4" fill="#005BBB"/>
+                  <circle cx="12.5" cy="9" r="1.4" fill="#005BBB"/>
+                  <circle cx="7.9" cy="8.6" r="0.45" fill="white"/>
+                  <circle cx="12.9" cy="8.6" r="0.45" fill="white"/>
+                  <rect x="7" y="11.5" width="6" height="1" rx="0.5" fill="#005BBB" fillOpacity="0.5"/>
+                  <rect x="2.5" y="7.5" width="1.5" height="3" rx="0.75" fill="white" fillOpacity="0.6"/>
+                  <rect x="16" y="7.5" width="1.5" height="3" rx="0.75" fill="white" fillOpacity="0.6"/>
+                  <rect x="6" y="14.5" width="8" height="4" rx="1.5" fill="white" fillOpacity="0.7"/>
+                  <rect x="8.25" y="15.2" width="1.2" height="2.5" rx="0.6" fill="#FFB81C" fillOpacity="0.8"/>
+                  <rect x="10.55" y="15.2" width="1.2" height="2.5" rx="0.6" fill="#FFB81C" fillOpacity="0.8"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-800">Session Complete 🎓</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {sessionState?.avg_score != null
+                    ? `Final score: ${sessionState.avg_score}/100 · `
+                    : ''}
+                  Start a new session to keep studying.
+                </p>
+              </div>
+              <span className="text-ub-gold font-bold text-lg shrink-0">✓</span>
+            </div>
+          </div>
+        ) : (
+          /* ── Normal input ── */
+          <>
+            {(masteryAvailable || isDone) && (
+              <div className="max-w-2xl mx-auto mb-2 flex justify-end">
+                <button
+                  onClick={masteryAvailable ? onMastery : undefined}
+                  disabled={masteryLoading}
+                  className="px-4 py-1.5 text-sm font-semibold rounded-lg transition-colors bg-ub-gold hover:bg-ub-gold-dk text-ub-navy shadow-sm"
+                >
+                  {masteryLoading ? 'Generating…' : '✦ Mastery Summary'}
+                </button>
+              </div>
+            )}
+
+            {!masteryAvailable && !isDone && sessionState?.turn_count != null && (
+              <p className="max-w-2xl mx-auto text-xs text-gray-400 mb-2 text-right">
+                {Math.max(0, 4 - (sessionState.turn_count || 0)) > 0
+                  ? `Mastery unlocks after ${4 - sessionState.turn_count} more turn(s).`
+                  : ''}
+              </p>
+            )}
+
+            <div className="max-w-2xl mx-auto">
+              <InputArea onSend={onSend} disabled={loading || masteryLoading} />
+            </div>
+
+            <p className="text-center text-xs text-gray-300 mt-2">
+              UB OT Tutor · Always verify important clinical information.
+            </p>
+          </>
+        )}
       </div>
     </div>
   )
