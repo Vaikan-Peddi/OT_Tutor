@@ -12,9 +12,11 @@ router = APIRouter(tags=["dashboard"])
 def get_dashboard(db: DBSession = Depends(get_db)):
     total_sessions = db.query(func.count(Session.id)).scalar() or 0
 
-    all_attempts = db.query(Attempt).all()
-    scores = [a.proximity_score for a in all_attempts if a.proximity_score is not None]
+    assessment_attempts = db.query(Attempt).filter(Attempt.phase == "assessment").all()
+    scores = [a.proximity_score for a in assessment_attempts if a.proximity_score is not None]
     avg_score = round(sum(scores) / len(scores), 1) if scores else None
+
+    all_attempts = db.query(Attempt).all()
 
     mastery_done = (
         db.query(func.count(Session.id)).filter(Session.mastery_done == True).scalar() or 0

@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 
 export default function InputArea({ onSend, disabled }) {
-  const [text, setText] = useState('')
-  const [imageFile, setImageFile] = useState(null)
+  const [text,         setText]         = useState('')
+  const [imageFile,    setImageFile]    = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
-  const fileRef = useRef(null)
+  const fileRef     = useRef(null)
   const textareaRef = useRef(null)
 
   // Auto-grow textarea
@@ -12,19 +12,17 @@ export default function InputArea({ onSend, disabled }) {
     const ta = textareaRef.current
     if (!ta) return
     ta.style.height = 'auto'
-    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'
+    ta.style.height = Math.min(ta.scrollHeight, 144) + 'px'
   }, [text])
 
   const handleSubmit = () => {
     const msg = text.trim()
     if (!msg && !imageFile) return
-    onSend(msg, imageFile)
+    onSend(msg, imageFile, imagePreview)
     setText('')
     setImageFile(null)
     setImagePreview(null)
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }
 
   const handleKeyDown = (e) => {
@@ -44,38 +42,36 @@ export default function InputArea({ onSend, disabled }) {
     e.target.value = ''
   }
 
-  const removeImage = () => {
-    setImageFile(null)
-    setImagePreview(null)
-  }
-
   const canSend = !disabled && (text.trim() || imageFile)
 
   return (
-    <div className="space-y-2">
+    <div className={`relative bg-white rounded-2xl border transition-all shadow-sm ${
+      disabled ? 'border-gray-200 opacity-70' : 'border-gray-300 hover:border-gray-400 focus-within:border-ub-blue focus-within:ring-2 focus-within:ring-ub-blue/20'
+    }`}>
+      {/* Image preview strip */}
       {imagePreview && (
-        <div className="relative inline-block">
-          <img
-            src={imagePreview}
-            alt="upload"
-            className="h-16 rounded-lg border border-gray-200 object-cover"
-          />
-          <button
-            onClick={removeImage}
-            className="absolute -top-1.5 -right-1.5 bg-gray-800 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center leading-none hover:bg-gray-700"
-          >
-            ×
-          </button>
+        <div className="px-4 pt-3 pb-1">
+          <div className="relative inline-block">
+            <img
+              src={imagePreview}
+              alt="upload preview"
+              className="h-16 rounded-xl border border-gray-200 object-cover"
+            />
+            <button
+              onClick={() => { setImageFile(null); setImagePreview(null) }}
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-700 hover:bg-gray-900 text-white rounded-full text-xs flex items-center justify-center leading-none transition-colors"
+            >×</button>
+          </div>
         </div>
       )}
 
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-2 px-3 py-2.5">
         {/* Image upload */}
         <button
           onClick={() => fileRef.current?.click()}
           disabled={disabled}
           title="Upload anatomy image"
-          className="shrink-0 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40"
+          className="shrink-0 p-1.5 text-gray-400 hover:text-ub-blue hover:bg-ub-blue/8 rounded-lg transition-colors disabled:opacity-40 mb-0.5"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -84,7 +80,7 @@ export default function InputArea({ onSend, disabled }) {
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
 
-        {/* Text input */}
+        {/* Textarea */}
         <textarea
           ref={textareaRef}
           value={text}
@@ -92,24 +88,20 @@ export default function InputArea({ onSend, disabled }) {
           onKeyDown={handleKeyDown}
           disabled={disabled}
           rows={1}
-          placeholder={
-            imageFile
-              ? 'Add a question about this image (optional)…'
-              : 'Ask a question or type your answer… (Enter to send)'
-          }
-          className="flex-1 resize-none rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 overflow-hidden"
-          style={{ minHeight: '44px' }}
+          placeholder={imageFile ? 'Add a question about this image… (optional)' : 'Ask a question or type your answer…'}
+          className="flex-1 resize-none bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none overflow-hidden leading-relaxed py-1"
+          style={{ minHeight: '36px' }}
         />
 
-        {/* Send */}
+        {/* Send button — circle */}
         <button
           onClick={handleSubmit}
           disabled={!canSend}
-          className="shrink-0 p-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-200 text-white rounded-xl transition-colors"
+          className="shrink-0 w-8 h-8 bg-ub-blue hover:bg-ub-blue-dk disabled:bg-gray-200 text-white rounded-full flex items-center justify-center transition-colors mb-0.5 shadow-sm"
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
+              d="M5 12h14M12 5l7 7-7 7" />
           </svg>
         </button>
       </div>

@@ -16,48 +16,53 @@ from src.llm import llm_chat
 # ─────────────────────────────────────────────────────────────────────────────
 
 _HINT_SYSTEM = """\
-You are a warm Socratic OT tutor. Your ONLY job right now is to ask ONE leading hint question.
+You are a warm Socratic OT tutor. Your ONLY job is to ask ONE leading hint question.
 
 ABSOLUTE RULES — ZERO EXCEPTIONS:
-1. NEVER use, spell, echo, or paraphrase the FORBIDDEN TERMS listed in the context block.
-   Those terms ARE the answer. Even if the student says them, do NOT repeat or confirm them.
-2. Do NOT define any key anatomy/neuroscience terms directly.
-3. Ask EXACTLY ONE short question that steers the student's thinking without naming the answer.
-4. Your entire response must be 2-3 sentences maximum.
-5. If the student seems close, acknowledge their reasoning direction (not the specific term) and push deeper.
-6. Do NOT say "Great question!" or similar filler openers.
-
-Think of the FORBIDDEN TERMS as words that must never appear in your output under any circumstances.\
+1. NEVER use, spell, echo, or paraphrase the FORBIDDEN TERMS — they ARE the answer.
+   Even if the student writes them, do NOT confirm, repeat, or imply them.
+2. Do NOT define anatomy/neuroscience terms directly.
+3. Your response must end with EXACTLY ONE question (last sentence ends with ?).
+4. Total response: 1-2 sentences maximum. The question itself, with at most one brief setup clause.
+5. If the student is on the right track, acknowledge their direction in one clause, then push deeper.
+6. Do NOT open with "Great question!", "Interesting!", or any filler phrase.
+7. Do NOT state or hint at the answer — only ask a question that steers thinking toward it.
+8. Ask about mechanism, function, or clinical consequence — never about terminology directly.
+9. TOPIC LOCK — critical: your question MUST stay strictly on the topic stated in STUDENT QUESTION.
+   Do NOT drift to related but different anatomy. Example: if the question is about finger flexion,
+   every hint must be about finger flexion muscles — NOT wrist flexors, NOT elbow flexors.\
 """
 
 _REVEAL_SYSTEM = """\
-You are a warm OT tutor. The student has had 2 attempts. It is now time to REVEAL the answer.
+You are a warm OT tutor. The student has had 2 hint turns. It is now time to reveal the full answer.
 
-Your response must include all of the following, but in a natural, conversational way (do NOT use section headings or numbers):
-- Clearly state the direct answer, using the DIRECT ANSWER provided in the context. Be accurate and grounded.
-- Present the clinical scenario from the context, smoothly transitioning from the answer to the scenario (e.g., "Now let's apply this..." or similar).
-- End with a question inviting the student to explain what is happening to the patient and what OT strategies might help (e.g., "How would you explain what is happening to this patient, and what OT strategies might help?").
+Write a single flowing response (no headings, no numbered lists) that:
+1. Opens by stating the direct answer clearly and accurately, grounded in the DIRECT ANSWER provided.
+2. Transitions naturally into the clinical scenario (e.g. "Now let's put this into practice…").
+3. Closes with ONE question asking the student to reason through the patient presentation and \
+   suggest appropriate OT strategies.
 
-Keep the whole response under 200 words. Do not use explicit section headings or numbers.\
+Keep the whole response under 180 words. Be warm and precise — state the answer confidently.\
 """
 
 _ASSESSMENT_SYSTEM = """\
 You are a warm OT tutor evaluating a student's clinical reasoning.
 
-YOUR RESPONSE MUST FOLLOW THIS EXACT STRUCTURE:
+Write a flowing response (no headings, no numbers) with exactly three parts:
 
-1. FEEDBACK (2-3 sentences): Evaluate the student's answer against the gold-standard.
-   - If correct: affirm clearly, name exactly what they got right.
-   - If partial: name what's right, then explain exactly what's missing.
-   - If wrong: be warm but clear — correct the misconception directly.
+FEEDBACK (2-3 sentences): Compare the student's response directly to the gold-standard answer.
+  - Score ≥75 (correct): Affirm clearly and name exactly what they got right.
+  - Score 25-74 (partial): Acknowledge what's right first, then explain the specific gap.
+  - Score <25 (wrong): Be warm but direct — correct the misconception with the right information.
 
-2. CLINICAL PEARL (1 sentence): Give one memorable takeaway fact or mnemonic.
+CLINICAL PEARL (1 sentence): One memorable mnemonic or high-yield fact tied to this specific topic.
 
-3. NEXT STEP (1 sentence): Tell the student what to do next.
-   - If they haven't typed /mastery yet, say: "When you're ready for the full mastery summary, type /mastery"
-   - If this is a follow-up assessment turn, ask them to try again or elaborate.
+NEXT STEP (1 sentence):
+  - If mastery is unlocked (MASTERY_UNLOCKED=True): "Press the Mastery button above for your full session summary."
+  - If mastery not yet unlocked: encourage them to keep working toward it.
+  - If this is a follow-up assessment turn: ask them to address the weakest part of their answer.
 
-Keep the whole response under 150 words. Be warm and specific. Do not use explicit section headings or numbers.\
+Keep the whole response under 150 words. Be specific — reference exact clinical terms from the answer.\
 """
 
 
@@ -119,6 +124,7 @@ def run_tutor(student_message: str, analysis: dict, session) -> str:
                 "",
                 "TURN: 1 of 2 (first hint)",
                 f"STUDENT QUESTION: {masked_question}",
+                f"TOPIC LOCK — every hint must be strictly about: {session.original_question}",
                 "",
                 "OPENING HINT QUESTIONS — pick the most fitting one and rephrase if needed:",
                 hint_questions,
@@ -143,6 +149,7 @@ def run_tutor(student_message: str, analysis: dict, session) -> str:
                 "",
                 "TURN: 2 of 2 (final hint — answer revealed next turn)",
                 f"STUDENT QUESTION: {masked_question}",
+                f"TOPIC LOCK — every hint must be strictly about: {session.original_question}",
                 "",
                 "YOUR PREVIOUS HINT (do NOT repeat this angle):",
                 prev_hint or "No previous hint.",
@@ -193,7 +200,7 @@ def run_tutor(student_message: str, analysis: dict, session) -> str:
 
     else:
         # Fallback (should not happen — mastery handled elsewhere)
-        return "Type /mastery to see your full session summary."
+        return "Press the Mastery button above to see your full session summary."
 
     # ── Build message list: history + this turn with hidden context ───────
     messages = list(session.conversation) + [

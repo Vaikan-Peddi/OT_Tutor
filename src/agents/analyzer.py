@@ -142,9 +142,9 @@ JSON schema:
   "direct_answer": "<2-4 sentences. Complete answer grounded strictly in the context passages.>",
   "clinical_scenario": "<1-2 sentences. A clinical case a student could reason through.>",
   "related_questions": [
-    "<1 sentence. Easy Socratic question to open the topic.>",
-    "<1 sentence. Medium question on a connected concept.>",
-    "<1 sentence. Hard clinical application question.>"
+    "<1 sentence. Easy Socratic question strictly about the SAME topic as the student's question.>",
+    "<1 sentence. Medium Socratic question that goes deeper on the SAME topic — not adjacent anatomy.>",
+    "<1 sentence. Hard clinical application question still focused on the SAME topic.>"
   ],
   "useful_info": "<1 sentence. One high-yield mnemonic or clinical pearl from the context.>",
   "topic_label": "<2-5 words lowercase. Label for this topic.>"
@@ -153,7 +153,7 @@ JSON schema:
 Rules:
 - Keep EVERY field short — the entire JSON must fit in one response.
 - direct_answer: if context is insufficient, write exactly: Insufficient context.
-- related_questions: exactly 3 strings, ordered easy to hard.
+- related_questions: exactly 3 strings, ordered easy to hard. ALL THREE must be about the exact same topic as the student's question — do NOT drift to related but different anatomy or concepts.
 - topic_label: lowercase, concise (e.g. "ulnar nerve function").
 - Do NOT use newlines inside any string value.
 """
@@ -210,8 +210,7 @@ def run_initializer(original_question: str, context: str) -> dict:
 
 _ANALYZER_SYSTEM = """\
 You are a student-response evaluator for a Socratic OT tutoring system.
-Given the original question, the gold-standard answer, the conversation history, \
-and the student's latest message, evaluate the student's response.
+This is a STUDY APP, not an exam. Be generous. Reward engagement and partial knowledge.
 Output ONLY a single JSON object — no markdown, no prose.
 
 JSON schema:
@@ -222,11 +221,33 @@ JSON schema:
   "mistake_excerpt": "<verbatim wrong claim from student under 80 chars, or null>"
 }
 
+CONVERSATION HISTORY RULE (most important):
+  Scan the ENTIRE conversation history before scoring.
+  If the student correctly named, described, or identified the core answer (or its key
+  components) at ANY point — even during hint turns — award at least 85.
+  Students are guided to the answer through hints; credit them when they get there.
+
+Scoring rubric for proximity_score:
+  0-10:  No attempt, completely off-topic, or only asking questions (no answer attempt).
+  11-35: Engages with the topic but core facts are wrong or missing.
+  36-60: Right area — identified a related concept or partial mechanism, missing key detail.
+  61-79: Mostly correct — right concept and reasoning, only minor gaps or loose wording.
+  80-89: Very good — nearly complete, trivial omissions only.
+  90-100: Correct answer stated directly (current turn OR anywhere in history). Award 95-100
+          if the student explicitly names or describes the answer with reasonable precision.
+
+Default bias: always round up between bands. A student who names the right structure
+but misses one detail is in the 75-85 range. Never penalise for imprecise wording alone.
+
 Rules:
-- student_answer_quality is "unanswered" if the student only asked a question without attempting an answer.
-- proximity_score: 0=no attempt or completely wrong, 50=partially correct, 100=fully correct.
+- student_answer_quality must be consistent with proximity_score:
+    "correct"    if score ≥ 65
+    "partial"    if 30 ≤ score < 65
+    "wrong"      if 0 < score < 30
+    "unanswered" if the student only asked a question without attempting an answer (score = 0)
 - attempt_summary and mistake_excerpt are null when quality is "unanswered".
 - mistake_excerpt must be a verbatim quote from the student's message, not a paraphrase.
+- Do NOT penalise the student for not using exact clinical terminology if the meaning is correct.
 """
 
 _ANALYZER_FALLBACK = {
