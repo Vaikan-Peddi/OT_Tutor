@@ -21,7 +21,7 @@ class QuizRequest(BaseModel):
 _QUIZ_SYSTEM = """\
 You are a quiz generator for an Occupational Therapy tutoring system.
 Given a set of student mistakes and the correct answers, generate exactly 4 multiple-choice \
-questions that target the specific misconceptions shown.
+questions that target the specific misconceptions shown. Remember to keep the 4 questions answering different parts and not the same question. We do not want the quiz questions answering the same thing in 4 different questions.
 
 Output ONLY a JSON array of question objects — no markdown, no prose.
 
