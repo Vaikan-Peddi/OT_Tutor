@@ -258,6 +258,45 @@ _ANALYZER_FALLBACK = {
 }
 
 
+def _looks_like_question(text: str) -> bool:
+    content = text.strip().lower()
+    if not content:
+        return False
+    if content.endswith('?'):
+        return True
+    return bool(
+        re.match(
+            r'^(who|what|when|where|why|how|is|are|can|could|should|would|did|do|does|will|may|might|must)\b',
+            content,
+        )
+    )
+
+
+def _normalize_quality(result: dict, student_message: str) -> dict:
+    quality = result.get('student_answer_quality', 'unanswered')
+    score = result.get('proximity_score', 0) or 0
+    if quality == 'unanswered' and student_message.strip():
+        if not _looks_like_question(student_message):
+            if score >= 65:
+                quality = 'correct'
+            elif score >= 30:
+                quality = 'partial'
+            else:
+                quality = 'wrong'
+        elif result.get('mistake_excerpt'):
+            # If the student made a wrong claim while still asking a question,
+            # count it as a wrong attempt rather than a pure unanswered query.
+            quality = 'wrong'
+
+    result['student_answer_quality'] = quality
+
+    if quality == 'unanswered':
+        result['attempt_summary'] = None
+        result['mistake_excerpt'] = None
+
+    return result
+
+
 def run_analyzer(
     student_message: str,
     original_question: str,
@@ -308,4 +347,5 @@ def run_analyzer(
         if key not in result:
             result[key] = default
 
+    result = _normalize_quality(result, student_message)
     return result

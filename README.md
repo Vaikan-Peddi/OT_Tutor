@@ -64,6 +64,11 @@ python main.py
 | `/status`  | Print current session summary                       |
 | `/quit`    | Exit                                                |
 
+## Accessibility
+
+- Browser-based **Speech-to-Text**: click the microphone button in the chat input to dictate questions or answers.
+- Browser-based **Text-to-Speech**: click the speaker button on assistant responses and mastery summaries to hear them read aloud.
+
 ## Switching LLM Provider
 
 Edit `.env`:
