@@ -58,7 +58,7 @@ FEEDBACK (2-3 sentences): Compare the student's response directly to the gold-st
 CLINICAL PEARL (1 sentence): One memorable mnemonic or high-yield fact tied to this specific topic.
 
 NEXT STEP (1 sentence):
-  - If mastery is unlocked (MASTERY_UNLOCKED=True): "Press the Mastery button above for your full session summary."
+  - If mastery is unlocked (MASTERY_UNLOCKED=True): "Press the Mastery button below for your full session summary."
   - If mastery not yet unlocked: encourage them to keep working toward it.
   - If this is a follow-up assessment turn: ask them to address the weakest part of their answer.
 

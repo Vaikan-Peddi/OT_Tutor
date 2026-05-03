@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { generateQuiz, resolveMistakes } from '../api'
 
+const isInsufficient = (s) => !s || s.toLowerCase().includes('insufficient context')
+
+const correctAnswerText = (answer) =>
+  isInsufficient(answer)
+    ? 'This concept wasn\'t fully covered in the reference material — review your course notes or textbook for this topic.'
+    : answer
+
 export default function RevisionModal({ weakSpot, onClose, onResolved }) {
   const [phase, setPhase]       = useState('intro')   // intro | loading | quiz | done
   const [questions, setQuestions] = useState([])
@@ -86,12 +93,12 @@ export default function RevisionModal({ weakSpot, onClose, onResolved }) {
                   <li key={m.id} className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
                     <p className="text-xs font-semibold text-red-500 uppercase tracking-wide mb-1">You said</p>
                     <p className="text-sm text-gray-800 italic">"{m.excerpt}"</p>
-                    {m.correct_answer && (
-                      <>
-                        <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mt-2 mb-1">Correct answer</p>
-                        <p className="text-sm text-gray-700">{m.correct_answer}</p>
-                      </>
-                    )}
+                    <>
+                      <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mt-2 mb-1">Correct answer</p>
+                      <p className={`text-sm ${isInsufficient(m.correct_answer) ? 'text-gray-400 italic' : 'text-gray-700'}`}>
+                        {correctAnswerText(m.correct_answer)}
+                      </p>
+                    </>
                   </li>
                 ))}
               </ul>
