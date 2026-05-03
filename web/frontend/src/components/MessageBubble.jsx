@@ -29,8 +29,37 @@ function UBAvatar() {
   )
 }
 
+const speakText = (text) => {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.rate = 1
+  utterance.pitch = 1
+  utterance.lang = 'en-US'
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.speak(utterance)
+}
+
 export default function MessageBubble({ message }) {
   const { role, content, is_mastery } = message
+  const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window && content
+
+  const renderSpeechButton = () => {
+    if (!canSpeak) return null
+    return (
+      <button
+        onClick={() => speakText(content)}
+        title="Read aloud"
+        className="ml-auto p-1.5 text-gray-400 hover:text-ub-blue hover:bg-ub-blue/8 rounded-lg transition-colors"
+        aria-label="Read message aloud"
+      >
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M11 5L6 9H3v6h3l5 4V5z" />
+          <path d="M15.54 8.46a5 5 0 010 7.07" />
+          <path d="M17.66 6.34a9 9 0 010 11.32" />
+        </svg>
+      </button>
+    )
+  }
 
   // ── User ───────────────────────────────────────────────────────────────
   if (role === 'user') {
@@ -77,11 +106,11 @@ export default function MessageBubble({ message }) {
         <UBAvatar />
         <div className="flex-1 min-w-0">
           <div className="bg-ub-gold/10 border border-ub-gold/30 rounded-2xl px-5 py-4">
-            <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-ub-gold/20">
-              <span className="text-ub-blue font-bold text-sm">Mastery Summary</span>
-              <span className="ml-auto bg-ub-gold text-ub-navy text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">
-                Complete
-              </span>
+            <div className="flex items-start gap-2 mb-3 pb-2.5 border-b border-ub-gold/20">
+              <div className="flex items-center gap-2">
+                <span className="text-ub-blue font-bold text-sm">Mastery Summary</span>
+              </div>
+              {renderSpeechButton()}
             </div>
             <div className="prose prose-sm max-w-none text-gray-800">
               <ReactMarkdown>{content}</ReactMarkdown>
@@ -97,6 +126,10 @@ export default function MessageBubble({ message }) {
     <div className="flex gap-3">
       <UBAvatar />
       <div className="flex-1 min-w-0 pt-0.5">
+        <div className="flex items-start gap-2 mb-2">
+          <div className="flex-1" />
+          {renderSpeechButton()}
+        </div>
         <div className="prose prose-sm max-w-none text-gray-800 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
           <ReactMarkdown>{content}</ReactMarkdown>
         </div>

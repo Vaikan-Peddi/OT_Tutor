@@ -4,16 +4,73 @@ export default function InputArea({ onSend, disabled }) {
   const [text,         setText]         = useState('')
   const [imageFile,    setImageFile]    = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
+  const [isRecording,  setIsRecording]  = useState(false)
   const fileRef     = useRef(null)
   const textareaRef = useRef(null)
+  const recognitionRef = useRef(null)
 
-  // Auto-grow textarea
+  const isSpeechRecognitionSupported = typeof window !== 'undefined' && (
+    'SpeechRecognition' in window || 'webkitSpeechRecognition' in window
+  )
+
   useEffect(() => {
     const ta = textareaRef.current
     if (!ta) return
     ta.style.height = 'auto'
     ta.style.height = Math.min(ta.scrollHeight, 144) + 'px'
   }, [text])
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop()
+    }
+  }, [])
+
+  const startListening = () => {
+    if (!isSpeechRecognitionSupported || disabled) return
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) return
+
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'en-US'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0]?.transcript || ''
+      if (!transcript) return
+      setText((prev) => prev ? `${prev} ${transcript}` : transcript)
+    }
+
+    recognition.onerror = () => {
+      setIsRecording(false)
+    }
+
+    recognition.onend = () => {
+      setIsRecording(false)
+      recognitionRef.current = null
+    }
+
+    recognition.start()
+    recognitionRef.current = recognition
+    setIsRecording(true)
+  }
+
+  const stopListening = () => {
+    recognitionRef.current?.stop()
+    recognitionRef.current = null
+    setIsRecording(false)
+  }
+
+  const handleMicClick = () => {
+    if (!isSpeechRecognitionSupported || disabled) return
+    if (isRecording) {
+      stopListening()
+      return
+    }
+    startListening()
+  }
 
   const handleSubmit = () => {
     const msg = text.trim()
@@ -79,6 +136,24 @@ export default function InputArea({ onSend, disabled }) {
           </svg>
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+
+        {/* Speech input */}
+        <button
+          onClick={handleMicClick}
+          disabled={!isSpeechRecognitionSupported || disabled}
+          title={isSpeechRecognitionSupported ? (isRecording ? 'Stop voice input' : 'Start voice input') : 'Speech-to-text is not supported in this browser'}
+          className="shrink-0 p-1.5 text-gray-400 hover:text-ub-blue hover:bg-ub-blue/8 rounded-lg transition-colors disabled:opacity-40 mb-0.5"
+          aria-pressed={isRecording}
+        >
+          <svg className={`w-5 h-5 ${isRecording ? 'text-ub-blue' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M12 1.75a3.75 3.75 0 00-3.75 3.75v4.5a3.75 3.75 0 007.5 0v-4.5A3.75 3.75 0 0012 1.75z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M19.5 10.75a7.5 7.5 0 01-15 0" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M12 18.25v3" />
+          </svg>
+        </button>
 
         {/* Textarea */}
         <textarea

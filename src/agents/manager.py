@@ -279,7 +279,8 @@ class ManagerAgent:
             mistake_excerpt = analysis.get("mistake_excerpt"),
         )
 
-        if analysis.get("student_answer_quality") in ("wrong", "partial"):
+        if (analysis.get("student_answer_quality") in ("wrong", "partial")
+                or analysis.get("mistake_excerpt")):
             topic = session.topic_label
             if topic and topic not in self.weak_topics:
                 self.weak_topics.append(topic)
