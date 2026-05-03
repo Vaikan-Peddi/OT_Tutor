@@ -95,11 +95,11 @@ class QuestionSession:
         })
         # Record a weak spot for every non-correct attempt
         if quality in ("wrong", "partial", "unanswered"):
+            raw_msg = student_msg.strip()
             excerpt = (
                 mistake_excerpt
                 or summary
-                or ("no knowledge demonstrated — could not answer" if quality == "unanswered"
-                    else f"incorrect or incomplete answer on turn {turn}")
+                or (f'"{raw_msg[:120]}"' if raw_msg else "no response given")
             )
             self.mistakes.append({
                 "topic"  : self.topic_label or "unknown",
