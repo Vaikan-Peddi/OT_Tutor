@@ -139,27 +139,31 @@ You NEVER speak to the student. Output ONLY a single JSON object — no markdown
 
 JSON schema:
 {
-  "direct_answer": "<2-4 sentences. Complete answer grounded strictly in the context passages.>",
+  "direct_answer": "<2-4 sentences answering the student question.>",
   "clinical_scenario": "<1-2 sentences. A clinical case a student could reason through.>",
   "related_questions": [
     "<1 sentence. Easy Socratic question strictly about the SAME topic as the student's question.>",
     "<1 sentence. Medium Socratic question that goes deeper on the SAME topic — not adjacent anatomy.>",
     "<1 sentence. Hard clinical application question still focused on the SAME topic.>"
   ],
-  "useful_info": "<1 sentence. One high-yield mnemonic or clinical pearl from the context.>",
-  "topic_label": "<2-5 words lowercase. Label for this topic.>"
+  "useful_info": "<1 sentence. One high-yield mnemonic or clinical pearl.>",
+  "topic_label": "<2-5 words lowercase. Label for this topic, derived from the student question.>"
 }
 
 Rules:
 - Keep EVERY field short — the entire JSON must fit in one response.
-- direct_answer: if context is insufficient, write exactly: Insufficient context.
-- related_questions: exactly 3 strings, ordered easy to hard. ALL THREE must be about the exact same topic as the student's question — do NOT drift to related but different anatomy or concepts.
-- topic_label: lowercase, concise (e.g. "ulnar nerve function").
+- direct_answer: use the context passages if they are relevant. If the passages are not relevant
+  or absent, answer from general anatomy/OT knowledge — be accurate and concise. Do NOT write
+  "Insufficient context" — always provide a real answer.
+- related_questions: exactly 3 strings, ordered easy to hard. ALL THREE must be about the exact
+  same topic as the student's question — do NOT drift to related but different anatomy or concepts.
+- topic_label: MUST be derived directly from the student question (e.g. "finger flexion muscles",
+  "median nerve injury"). Never use generic placeholders like "anatomy topic".
 - Do NOT use newlines inside any string value.
 """
 
 _INIT_FALLBACK = {
-    "direct_answer"    : "Insufficient context.",
+    "direct_answer"    : "",   # populated by post-processing if empty
     "clinical_scenario": "A patient presents with a peripheral nerve injury. Describe the deficit.",
     "related_questions": [
         "What do you already know about this structure?",
@@ -169,6 +173,23 @@ _INIT_FALLBACK = {
     "useful_info"  : "",
     "topic_label"  : "anatomy topic",
 }
+
+
+_TOPIC_STOPWORDS = {
+    'what', 'which', 'where', 'when', 'who', 'how', 'does', 'is', 'are', 'was',
+    'the', 'a', 'an', 'of', 'for', 'in', 'on', 'to', 'and', 'or', 'that', 'this',
+    'these', 'those', 'with', 'from', 'by', 'about', 'can', 'will', 'would', 'could',
+    'should', 'do', 'be', 'its', 'their', 'your', 'responsible', 'used', 'called',
+    'named', 'give', 'tell', 'explain', 'describe', 'define', 'list', 'name',
+}
+
+
+def _topic_from_question(question: str) -> str:
+    """Derive a 2-4 word topic label directly from the question text."""
+    import re
+    words = [w for w in re.findall(r'\b[a-z]+\b', question.lower())
+             if len(w) > 3 and w not in _TOPIC_STOPWORDS]
+    return " ".join(words[:4]) if words else "anatomy topic"
 
 
 def run_initializer(original_question: str, context: str) -> dict:
@@ -197,6 +218,29 @@ def run_initializer(original_question: str, context: str) -> dict:
         if key not in result:
             result[key] = default
 
+    # Safety net: if topic_label is generic or empty, derive from the question
+    label = result.get("topic_label", "").strip().lower()
+    if not label or label in ("anatomy topic", "anatomy", "topic"):
+        result["topic_label"] = _topic_from_question(original_question)
+
+    # Safety net: if direct_answer is empty or still says insufficient context,
+    # ask the LLM for a brief general-knowledge answer
+    answer = result.get("direct_answer", "").strip()
+    if not answer or "insufficient context" in answer.lower():
+        fallback_prompt = (
+            f"Question: {original_question}\n\n"
+            "Answer this anatomy/OT question using general knowledge. "
+            "Be accurate and concise (2-3 sentences). "
+            "If you are not certain, say so briefly rather than guessing details."
+        )
+        result["direct_answer"] = llm_chat(
+            "You are a knowledgeable OT anatomy tutor. Answer the question accurately "
+            "and concisely from general anatomy knowledge. Do not fabricate specific "
+            "numbers or citations. If genuinely uncertain, hedge briefly.",
+            [{"role": "user", "content": fallback_prompt}],
+            max_tokens=300,
+        )
+
     rq = result.get("related_questions", [])
     if not isinstance(rq, list) or len(rq) < 3:
         result["related_questions"] = _INIT_FALLBACK["related_questions"]
@@ -218,7 +262,7 @@ JSON schema:
   "student_answer_quality": "<one of: correct, partial, wrong, unanswered>",
   "proximity_score": <integer 0 to 100>,
   "attempt_summary": "<1-2 sentences on what the student got right or wrong, or null>",
-  "mistake_excerpt": "<verbatim wrong claim from student under 80 chars, or null>"
+  "mistake_excerpt": "<short description of the gap or misconception, under 100 chars, or null>"
 }
 
 CONVERSATION HISTORY RULE (most important):
@@ -239,14 +283,26 @@ Scoring rubric for proximity_score:
 Default bias: always round up between bands. A student who names the right structure
 but misses one detail is in the 75-85 range. Never penalise for imprecise wording alone.
 
-Rules:
+Rules for mistake_excerpt — set this field aggressively:
+- score < 65 (wrong or partial): ALWAYS set mistake_excerpt. Write a short phrase describing
+  exactly what the student got wrong or what was missing. Examples:
+    "confused wrist flexors with finger flexors"
+    "identified wrong nerve — said radial instead of median"
+    "no knowledge of the topic — could not attempt"
+    "partially correct but missed FDP as primary flexor"
+- score ≥ 65: set to null only if the answer was genuinely correct.
+- "I don't know", blank, or off-topic responses: set mistake_excerpt to
+  "no knowledge demonstrated — could not answer [topic]".
+- Do NOT leave mistake_excerpt null just because there is no verbatim wrong quote.
+  A description of the gap is equally valid.
+
+Other rules:
 - student_answer_quality must be consistent with proximity_score:
     "correct"    if score ≥ 65
     "partial"    if 30 ≤ score < 65
     "wrong"      if 0 < score < 30
     "unanswered" if the student only asked a question without attempting an answer (score = 0)
-- attempt_summary and mistake_excerpt are null when quality is "unanswered".
-- mistake_excerpt must be a verbatim quote from the student's message, not a paraphrase.
+- attempt_summary is null only when quality is "unanswered" with no engagement.
 - Do NOT penalise the student for not using exact clinical terminology if the meaning is correct.
 """
 

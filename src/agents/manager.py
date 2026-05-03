@@ -93,10 +93,17 @@ class QuestionSession:
             "proximity_score": score,
             "attempt_summary": summary,
         })
-        if mistake_excerpt:
+        # Record a weak spot for every non-correct attempt
+        if quality in ("wrong", "partial", "unanswered"):
+            excerpt = (
+                mistake_excerpt
+                or summary
+                or ("no knowledge demonstrated — could not answer" if quality == "unanswered"
+                    else f"incorrect or incomplete answer on turn {turn}")
+            )
             self.mistakes.append({
                 "topic"  : self.topic_label or "unknown",
-                "excerpt": mistake_excerpt,
+                "excerpt": excerpt[:200],
             })
 
     def to_db_record(self) -> dict:

@@ -139,10 +139,16 @@ export default function DashboardPage() {
                               "{m.excerpt}"
                             </p>
                           </button>
-                          {tooltipId === m.id && m.correct_answer && (
+                          {tooltipId === m.id && (
                             <div className="mt-1.5 bg-white border border-emerald-200 rounded-xl px-3 py-2.5 shadow-sm">
                               <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide mb-1">Correct Answer</p>
-                              <p className="text-xs text-gray-700 leading-relaxed">{m.correct_answer}</p>
+                              {m.correct_answer && !m.correct_answer.toLowerCase().includes('insufficient context') ? (
+                                <p className="text-xs text-gray-700 leading-relaxed">{m.correct_answer}</p>
+                              ) : (
+                                <p className="text-xs text-gray-400 italic leading-relaxed">
+                                  Not enough reference material was found for this topic — review your course notes.
+                                </p>
+                              )}
                             </div>
                           )}
                         </li>

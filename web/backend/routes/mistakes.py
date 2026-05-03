@@ -51,6 +51,11 @@ def generate_quiz(body: QuizRequest, db: DBSession = Depends(get_db)):
     if not mistakes:
         raise HTTPException(status_code=404, detail="No mistakes found for given IDs.")
 
+    def _clean_answer(ans: str | None) -> str:
+        if not ans or "insufficient context" in ans.lower():
+            return "not available — base questions on the topic and the student's misconception"
+        return ans
+
     # Build context block for the LLM
     mistake_lines = []
     for i, m in enumerate(mistakes, 1):
@@ -59,7 +64,7 @@ def generate_quiz(body: QuizRequest, db: DBSession = Depends(get_db)):
             f"  Topic: {m.topic or 'unknown'}\n"
             f"  Question asked: {m.original_question or 'unknown'}\n"
             f"  Student said (wrong): {m.excerpt or 'unknown'}\n"
-            f"  Correct answer: {m.correct_answer or 'not available'}"
+            f"  Correct answer: {_clean_answer(m.correct_answer)}"
         )
 
     prompt = (
