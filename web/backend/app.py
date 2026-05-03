@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from .database import engine, Base
 from .routes import sessions as sessions_routes
 from .routes import dashboard as dashboard_routes
+from .routes import mistakes as mistakes_routes
 
 
 @asynccontextmanager
@@ -33,6 +34,7 @@ app.add_middleware(
 
 app.include_router(sessions_routes.router, prefix="/api")
 app.include_router(dashboard_routes.router, prefix="/api")
+app.include_router(mistakes_routes.router, prefix="/api")
 
 # Serve built React frontend in production
 DIST = ROOT / "web" / "frontend" / "dist"

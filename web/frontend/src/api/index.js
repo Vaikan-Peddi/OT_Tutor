@@ -17,4 +17,7 @@ export const sendMessage = (sessionId, message, imageFile) => {
   })
 }
 
-export const requestMastery = (sessionId) => api.post(`/sessions/${sessionId}/mastery`)
+export const requestMastery  = (sessionId)  => api.post(`/sessions/${sessionId}/mastery`)
+
+export const generateQuiz    = (mistakeIds) => api.post('/mistakes/quiz',    { mistake_ids: mistakeIds })
+export const resolveMistakes = (mistakeIds) => api.post('/mistakes/resolve', { mistake_ids: mistakeIds })
