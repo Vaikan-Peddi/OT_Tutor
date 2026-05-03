@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getDashboard } from '../api'
+import RevisionModal from '../components/RevisionModal'
 
 function StatCard({ label, value, sub, highlight = false }) {
   return (
@@ -42,16 +43,20 @@ function QualityBar({ label, count, total }) {
 }
 
 export default function DashboardPage() {
-  const [data,    setData]    = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [data,          setData]          = useState(null)
+  const [loading,       setLoading]       = useState(true)
+  const [revising,      setRevising]      = useState(null)   // weakSpot object | null
+  const [tooltipId,     setTooltipId]     = useState(null)   // mistake id with open tooltip
   const navigate = useNavigate()
 
-  useEffect(() => {
+  const loadDashboard = () => {
     getDashboard()
       .then((res) => setData(res.data))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadDashboard() }, [])
 
   if (loading) {
     return (
@@ -65,7 +70,14 @@ export default function DashboardPage() {
 
   const totalAttempts = Object.values(data.quality_breakdown).reduce((a, b) => a + b, 0)
 
+  const handleResolved = (topic) => {
+    setRevising(null)
+    // Remove the resolved topic from weak_spots optimistically
+    setData((d) => ({ ...d, weak_spots: d.weak_spots.filter((ws) => ws.topic !== topic) }))
+  }
+
   return (
+    <>
     <div className="h-full overflow-y-auto bg-gray-50 scrollbar-thin">
       <div className="max-w-4xl mx-auto px-8 py-8 space-y-8">
 
@@ -97,13 +109,45 @@ export default function DashboardPage() {
             {data.weak_spots.length === 0 ? (
               <p className="text-gray-400 text-sm">No weak spots yet — keep it up!</p>
             ) : (
-              <ul className="divide-y divide-gray-50">
+              <ul className="space-y-2">
                 {data.weak_spots.map((ws) => (
-                  <li key={ws.topic} className="flex items-center justify-between py-2.5">
-                    <span className="text-sm text-gray-700 font-medium">{ws.topic}</span>
-                    <span className="text-xs bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded-full font-semibold">
-                      {ws.count} mistake{ws.count !== 1 ? 's' : ''}
-                    </span>
+                  <li key={ws.topic} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                    {/* Topic row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-gray-800 capitalize">{ws.topic}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs bg-red-50 text-red-600 border border-red-100 px-2 py-0.5 rounded-full font-semibold">
+                          {ws.count} mistake{ws.count !== 1 ? 's' : ''}
+                        </span>
+                        <button
+                          onClick={() => setRevising(ws)}
+                          className="text-xs px-2.5 py-1 bg-ub-blue hover:bg-ub-blue-dk text-white font-semibold rounded-lg transition-colors"
+                        >
+                          Revise →
+                        </button>
+                      </div>
+                    </div>
+                    {/* Mistake excerpts */}
+                    <ul className="mt-2 space-y-1">
+                      {ws.mistakes.map((m) => (
+                        <li key={m.id} className="relative">
+                          <button
+                            className="w-full text-left"
+                            onClick={() => setTooltipId(tooltipId === m.id ? null : m.id)}
+                          >
+                            <p className="text-xs text-gray-500 italic truncate hover:text-gray-700 transition-colors">
+                              "{m.excerpt}"
+                            </p>
+                          </button>
+                          {tooltipId === m.id && m.correct_answer && (
+                            <div className="mt-1.5 bg-white border border-emerald-200 rounded-xl px-3 py-2.5 shadow-sm">
+                              <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide mb-1">Correct Answer</p>
+                              <p className="text-xs text-gray-700 leading-relaxed">{m.correct_answer}</p>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   </li>
                 ))}
               </ul>
@@ -181,5 +225,14 @@ export default function DashboardPage() {
 
       </div>
     </div>
+
+    {revising && (
+      <RevisionModal
+        weakSpot={revising}
+        onClose={() => setRevising(null)}
+        onResolved={handleResolved}
+      />
+    )}
+    </>
   )
 }

@@ -22,17 +22,22 @@ def get_dashboard(db: DBSession = Depends(get_db)):
         db.query(func.count(Session.id)).filter(Session.mastery_done == True).scalar() or 0
     )
 
-    # Weak spots: topics with wrong/partial answers, ranked by frequency
-    mistakes = db.query(Mistake).all()
-    topic_counts: dict[str, int] = {}
+    # Weak spots: unresolved mistakes grouped by topic, ranked by frequency
+    mistakes = db.query(Mistake).filter(Mistake.resolved == False).all()
+    topic_map: dict[str, dict] = {}
     for m in mistakes:
         topic = m.topic or "Unknown"
-        topic_counts[topic] = topic_counts.get(topic, 0) + 1
+        if topic not in topic_map:
+            topic_map[topic] = {"topic": topic, "count": 0, "mistakes": []}
+        topic_map[topic]["count"] += 1
+        topic_map[topic]["mistakes"].append({
+            "id": m.id,
+            "excerpt": m.excerpt,
+            "correct_answer": m.correct_answer,
+            "original_question": m.original_question,
+        })
 
-    weak_spots = [
-        {"topic": k, "count": v}
-        for k, v in sorted(topic_counts.items(), key=lambda x: -x[1])
-    ]
+    weak_spots = sorted(topic_map.values(), key=lambda x: -x["count"])
 
     # Answer quality breakdown
     quality_counts: dict[str, int] = {"correct": 0, "partial": 0, "wrong": 0, "unanswered": 0}

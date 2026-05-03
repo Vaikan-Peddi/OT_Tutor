@@ -193,6 +193,8 @@ async def chat(
                     session_id=session_id,
                     topic=mistake["topic"],
                     excerpt=mistake["excerpt"],
+                    correct_answer=q_sess.direct_answer or None,
+                    original_question=q_sess.original_question or None,
                 ))
                 existing_excerpts.add(mistake["excerpt"])
 

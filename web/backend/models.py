@@ -63,5 +63,8 @@ class Mistake(Base):
     session_id = Column(String, ForeignKey("sessions.id", ondelete="CASCADE"))
     topic = Column(String)
     excerpt = Column(Text)
+    correct_answer = Column(Text, nullable=True)
+    original_question = Column(Text, nullable=True)
+    resolved = Column(Boolean, default=False)
 
     session = relationship("Session", back_populates="mistakes")
