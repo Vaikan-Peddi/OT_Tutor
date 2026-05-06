@@ -1,0 +1,25 @@
+{
+  "id": 41,
+  "filename": "spine_cs.jpg",
+  "license": "CC BY 4.0 (OpenStax)",
+  "title": "Spinal Cord Cross-Section (Horns and Columns)",
+  "structures": [
+    "gray matter: posterior (dorsal) horn",
+    "gray matter: lateral horn",
+    "gray matter: anterior (ventral) horn",
+    "white matter: posterior (dorsal) columns",
+    "white matter: lateral columns",
+    "white matter: anterior (ventral) columns",
+    "central canal"
+  ],
+  "labels": [
+    "spinal tracts",
+    "gray matter horns",
+    "white matter columns"
+  ],
+  "region": "central nervous system / spinal cord",
+  "topic": "internal organization of the spinal cord",
+  "description": "OpenStax diagram detailing the specific anatomical subdivisions of the spinal cord's interior. It highlights the functional horns of the gray matter (sensory, autonomic, motor) and the white matter columns (funiculi) that house ascending and descending tracts.",
+  "clinical_notes": "Specific pathologies target distinct areas of this cross-section. ALS specifically degenerates the anterior horn cells (motor neurons) and lateral columns (corticospinal tracts). OT intervention for ALS is heavily compensatory, focusing on energy conservation, environmental modifications, and progressive assistive technology as motor function declines.",
+  "openstax_chapter": "Chapter 14 – The Brain and Cranial Nerves / Chapter 13"
+}

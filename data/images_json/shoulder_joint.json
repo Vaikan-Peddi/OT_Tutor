@@ -1,0 +1,34 @@
+{
+  "id": 35,
+  "filename": "shoulder_joint.jpg",
+  "license": "CC BY 4.0 (OpenStax)",
+  "title": "Anatomy of the Shoulder Joint (Glenohumeral Joint)",
+  "structures": [
+    "clavicle",
+    "acromion of scapula",
+    "coracoacromial ligament",
+    "acromioclavicular ligament",
+    "subacromial bursa",
+    "articular capsule (synovial and fibrous membrane)",
+    "tendon sheath",
+    "tendon of biceps brachii (long head)",
+    "head of humerus",
+    "humerus",
+    "articular cartilage",
+    "scapula",
+    "glenoid cavity",
+    "glenoid labrum",
+    "tendon of supraspinatus muscle"
+  ],
+  "labels": [
+    "glenohumeral joint",
+    "synovial joint",
+    "shoulder ligaments",
+    "articular capsule"
+  ],
+  "region": "upper limb / shoulder",
+  "topic": "glenohumeral joint structure",
+  "description": "OpenStax diagram of a coronal cross-section through the glenohumeral joint. It clearly illustrates the articulating surfaces (humerus and glenoid cavity), the stabilizing labrum, the joint capsule, and the crucial spatial relationship of the subacromial bursa and supraspinatus tendon beneath the acromion.",
+  "clinical_notes": "Subacromial impingement syndrome occurs when the supraspinatus tendon and subacromial bursa are compressed between the humeral head and the coracoacromial arch during arm elevation. OT focuses on modifying overhead activities, ergonomic setup, and strengthening scapular stabilizers to improve subacromial space clearance.",
+  "openstax_chapter": "Chapter 9 – Joints"
+}
