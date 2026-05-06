@@ -6,7 +6,9 @@ Usage:
     python run_eval.py --retrieval  # retrieval quality eval
     python run_eval.py --ragas      # RAGAS faithfulness + relevance (needs eval_transcripts.json)
     python run_eval.py --purity     # Socratic Purity eval (needs eval_transcripts.json)
-    python run_eval.py --summary    # print saved results from all completed evals
+    python run_eval.py --multimodal      # blind-test multimodal structure identification eval
+    python run_eval.py --generalizability # Physics subject-swap generalizability eval
+    python run_eval.py --summary          # print saved results from all completed evals
 
 eval_results/eval_transcripts.json format:
 [
@@ -31,6 +33,8 @@ from pathlib import Path
 from src.eval.retrieval_eval import run_retrieval_eval
 from src.eval.ragas_eval import run_ragas_eval
 from src.eval.socratic_purity_eval import run_socratic_purity_eval
+from src.eval.multimodal_eval import run_multimodal_eval
+from src.eval.generalizability_eval import run_generalizability_eval
 
 
 def _load_transcripts(path: Path) -> list:
@@ -40,10 +44,12 @@ def _load_transcripts(path: Path) -> list:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--retrieval", action="store_true", help="Run retrieval quality eval")
-    parser.add_argument("--ragas",     action="store_true", help="Run RAGAS faithfulness + relevance eval")
-    parser.add_argument("--purity",    action="store_true", help="Run Socratic Purity eval")
-    parser.add_argument("--summary",   action="store_true", help="Print saved results from all completed evals")
+    parser.add_argument("--retrieval",  action="store_true", help="Run retrieval quality eval")
+    parser.add_argument("--ragas",      action="store_true", help="Run RAGAS faithfulness + relevance eval")
+    parser.add_argument("--purity",     action="store_true", help="Run Socratic Purity eval")
+    parser.add_argument("--multimodal",       action="store_true", help="Run blind-test multimodal structure identification eval")
+    parser.add_argument("--generalizability", action="store_true", help="Run Physics subject-swap generalizability eval")
+    parser.add_argument("--summary",          action="store_true", help="Print saved results from all completed evals")
 
     args = parser.parse_args()
 
@@ -80,6 +86,46 @@ def main():
         else:
             print("\nsocratic_purity_results.json not found — run with --purity first.")
 
+        mm_path = Path("eval_results/multimodal_eval_results.json")
+        if mm_path.exists():
+            data = json.loads(mm_path.read_text())
+            agg  = data.get("aggregate", {})
+            imgs = data.get("per_image", [])
+            print(f"\n── Multimodal Eval Summary ({agg.get('n_images', len(imgs))} image(s)) ──────────────────────")
+            print(f"  Mean Structure F1:      {agg.get('mean_structure_f1', 0):.3f}")
+            print(f"  Mean Precision:         {agg.get('mean_precision', 0):.3f}")
+            print(f"  Mean Recall:            {agg.get('mean_recall', 0):.3f}")
+            print(f"  Diagram Match Rate:     {agg.get('diagram_match_rate', 0):.3f}")
+            print(f"  Region Accuracy:        {agg.get('region_accuracy', 0):.3f}")
+            print(f"  Confidence dist:        {agg.get('confidence_dist', {})}")
+            print()
+            for r in imgs:
+                f1  = r["structure_f1"]["f1"]
+                ok  = "✓" if r["diagram_match"] else "✗"
+                reg = "✓" if r["region_correct"] else "✗"
+                print(f"  {r['image']:<40}  F1={f1:.3f}  match={ok}  region={reg}  conf={r['gemini_confidence']}")
+        else:
+            print("\nmultimodal_eval_results.json not found — run with --multimodal first.")
+
+        gen_path = Path("eval_results/generalizability_results.json")
+        if gen_path.exists():
+            data = json.loads(gen_path.read_text())
+            agg  = data.get("aggregate", {})
+            print(f"\n── Generalizability Summary (subject: {data.get('subject', '?')}) ────────────────")
+            print(f"  Corpus chunks:          {data.get('corpus_chunks', '?')}")
+            print(f"  Gold-in-context:        {agg.get('gold_in_context_pct', 0):.1f}%  "
+                  f"(FULL={agg.get('n_full',0)}  PARTIAL={agg.get('n_partial',0)}  MISS={agg.get('n_miss',0)})")
+            print(f"  Mean Key-Term Rate:     {agg.get('mean_key_term_rate', 0):.3f}")
+            print(f"  Verdict: {data.get('generalisation_verdict', '')}")
+            pt = data.get("per_topic", {})
+            if pt:
+                print()
+                for topic, v in pt.items():
+                    print(f"  {topic:30s}  FULL={v['n_full']} PARTIAL={v['n_partial']} "
+                          f"MISS={v['n_miss']} avg_kt={v['avg_kt']:.2f}")
+        else:
+            print("\ngeneralizability_results.json not found — run with --generalizability first.")
+
         return
 
     # ── Active eval runs ───────────────────────────────────────────────────
@@ -104,6 +150,14 @@ def main():
             transcripts = _load_transcripts(transcripts_path)
             print(f"\n── Socratic Purity Eval ({len(transcripts)} transcripts) ───────────────")
             run_socratic_purity_eval(transcripts)
+
+    if args.multimodal:
+        print("\n── Multimodal Blind-Test Eval ──────────────────────────────────────")
+        run_multimodal_eval()
+
+    if args.generalizability:
+        print("\n── Generalizability Eval (Physics subject swap) ────────────────────")
+        run_generalizability_eval()
 
 
 if __name__ == "__main__":

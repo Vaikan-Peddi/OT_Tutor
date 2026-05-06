@@ -95,16 +95,22 @@ class QuestionSession:
         })
         # Record a weak spot for every non-correct attempt
         if quality in ("wrong", "partial", "unanswered"):
-            raw_msg = student_msg.strip()
-            excerpt = (
-                mistake_excerpt
-                or summary
-                or (f'"{raw_msg[:120]}"' if raw_msg else "no response given")
-            )
-            self.mistakes.append({
-                "topic"  : self.topic_label or "unknown",
-                "excerpt": excerpt[:200],
-            })
+            # For unanswered, only log once per session
+            if quality == "unanswered" and any(
+                m["excerpt"].startswith("no knowledge demonstrated") for m in self.mistakes
+            ):
+                pass  # Skip logging duplicate unanswered mistake
+            else:
+                raw_msg = student_msg.strip()
+                excerpt = (
+                    mistake_excerpt
+                    or summary
+                    or (f'"{raw_msg[:120]}"' if raw_msg else "no response given")
+                )
+                self.mistakes.append({
+                    "topic"  : self.topic_label or "unknown",
+                    "excerpt": excerpt[:200],
+                })
 
     def to_db_record(self) -> dict:
         return {

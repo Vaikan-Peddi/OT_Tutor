@@ -126,15 +126,15 @@ def run_tutor(student_message: str, analysis: dict, session) -> str:
                 f"STUDENT QUESTION: {masked_question}",
                 f"TOPIC LOCK — every hint must be strictly about: {session.original_question}",
                 "",
+                "IMPORTANT: This is the student's FIRST message. Treat it as an opening question "
+                "or initial thought — do NOT evaluate whether it is correct or incorrect. "
+                "Ignore quality/proximity scores this turn and jump straight to ONE leading hint question.",
+                "",
                 "OPENING HINT QUESTIONS — pick the most fitting one and rephrase if needed:",
                 hint_questions,
                 "",
-                "STUDENT'S ATTEMPT THIS TURN:",
+                "STUDENT'S FIRST MESSAGE:",
                 student_message,
-                "",
-                f"QUALITY: {analysis.get('student_answer_quality', 'unanswered')}",
-                f"PROXIMITY: {analysis.get('proximity_score', 0)}/100",
-                analysis.get("attempt_summary") or "",
             ])
         else:
             # Turn 2: build on the student's turn-1 response and the first hint
