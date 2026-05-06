@@ -283,18 +283,11 @@ Scoring rubric for proximity_score:
 Default bias: always round up between bands. A student who names the right structure
 but misses one detail is in the 75-85 range. Never penalise for imprecise wording alone.
 
-Rules for mistake_excerpt — set this field aggressively:
-- score < 65 (wrong or partial): ALWAYS set mistake_excerpt. Write a short phrase describing
-  exactly what the student got wrong or what was missing. Examples:
-    "confused wrist flexors with finger flexors"
-    "identified wrong nerve — said radial instead of median"
-    "no knowledge of the topic — could not attempt"
-    "partially correct but missed FDP as primary flexor"
-- score ≥ 65: set to null only if the answer was genuinely correct.
-- "I don't know", blank, or off-topic responses: set mistake_excerpt to
-  "no knowledge demonstrated — could not answer [topic]".
-- Do NOT leave mistake_excerpt null just because there is no verbatim wrong quote.
-  A description of the gap is equally valid.
+Rules for mistake_excerpt — set this field ONLY when the answer is completely unrelated to the context/topic:
+- Only set if the student's answer shows no connection to anatomy/OT at all (e.g., off-topic, irrelevant, or completely wrong topic).
+- For wrong but related answers (even if incorrect), leave as null.
+- For "I don't know", blank, or off-topic responses: set to "no knowledge demonstrated — could not answer".
+- Must be a short description under 100 chars.
 
 Other rules:
 - student_answer_quality must be consistent with proximity_score:
