@@ -1,8 +1,10 @@
 # Environment & secrets
 .env
 
-# ChromaDB — rebuild with run_ingest.py
-db/
+# SQLite runtime DB — excluded (ephemeral on server)
+db/*.db
+
+# ChromaDB is committed so Render doesn't need the PDF
 
 # Eval outputs
 eval_results/
