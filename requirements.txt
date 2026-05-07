@@ -1,9 +1,9 @@
 chromadb
-sentence-transformers
 langchain-text-splitters
 pymupdf
 openai
 anthropic
+groq
 python-dotenv
 numpy
 google-generativeai

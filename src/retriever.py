@@ -1,15 +1,14 @@
 """
-retriever.py — loads ChromaDB + embedder once (lazy) and exposes retrieve_context().
+retriever.py — loads ChromaDB once (lazy) and exposes retrieve_context().
+Embedding is handled by ChromaDB's built-in ONNX runtime (no torch needed).
 """
 
 import chromadb
-from sentence_transformers import SentenceTransformer
 
-from src.config import CHROMA_PATH, COLLECTION_NAME, EMBEDDING_MODEL, DEFAULT_K
+from src.config import CHROMA_PATH, COLLECTION_NAME, DEFAULT_K
 
 _client     = None
 _collection = None
-_embedder   = None
 
 
 def _get_collection():
@@ -19,13 +18,6 @@ def _get_collection():
         _collection = _client.get_collection(COLLECTION_NAME)
         print(f"[retriever] ChromaDB loaded — {_collection.count()} chunks available.")
     return _collection
-
-
-def _get_embedder():
-    global _embedder
-    if _embedder is None:
-        _embedder = SentenceTransformer(EMBEDDING_MODEL)
-    return _embedder
 
 
 def retrieve_context(question: str, k: int = DEFAULT_K) -> tuple[str, list[dict]]:
@@ -40,10 +32,7 @@ def retrieve_context(question: str, k: int = DEFAULT_K) -> tuple[str, list[dict]
         return "", []
 
     collection = _get_collection()
-    embedder   = _get_embedder()
-
-    query_embedding = embedder.encode([question])
-    results = collection.query(query_embeddings=query_embedding, n_results=k)
+    results = collection.query(query_texts=[question], n_results=k)
 
     chunks    = results["documents"][0]
     metadatas = results["metadatas"][0]
