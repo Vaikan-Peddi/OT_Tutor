@@ -42,6 +42,10 @@ app.include_router(sessions_routes.router, prefix="/api")
 app.include_router(dashboard_routes.router, prefix="/api")
 app.include_router(mistakes_routes.router, prefix="/api")
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 # Serve built React frontend in production
 DIST = ROOT / "web" / "frontend" / "dist"
 if DIST.exists():
