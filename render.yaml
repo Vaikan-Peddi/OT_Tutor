@@ -2,7 +2,7 @@ services:
   - type: web
     name: ot-tutor-backend
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && npm --prefix web/frontend install && npm --prefix web/frontend run build
     startCommand: uvicorn web.backend.app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
