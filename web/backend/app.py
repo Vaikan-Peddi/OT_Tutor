@@ -49,4 +49,7 @@ if DIST.exists():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
+        file = DIST / full_path
+        if file.exists() and file.is_file():
+            return FileResponse(str(file))
         return FileResponse(str(DIST / "index.html"))
