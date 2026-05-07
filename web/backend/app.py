@@ -24,9 +24,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="OT Tutor API", lifespan=lifespan)
 
+import os as _os
+_cors_origins = _os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://localhost:3000,http://localhost:4173",
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:4173"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
