@@ -1,0 +1,23 @@
+{
+  "id": 36,
+  "filename": "wrist_radial.jpg",
+  "license": "All Rights Reserved (NYSORA) - Educational Use",
+  "title": "Radial Side of the Wrist (Anatomical Snuffbox)",
+  "structures": [
+    "radial nerve (superficial sensory branch)",
+    "extensor pollicis longus",
+    "extensor pollicis brevis",
+    "first metacarpal bone"
+  ],
+  "labels": [
+    "radial nerve",
+    "anatomical snuffbox",
+    "thumb extensors",
+    "dorsal wrist"
+  ],
+  "region": "upper limb / wrist and hand",
+  "topic": "radial nerve pathway at the wrist",
+  "description": "A lateral view drawing focusing on the radial aspect of the wrist. It highlights the superficial sensory branch of the radial nerve as it crosses over the tendons that form the anatomical snuffbox (extensor pollicis longus and brevis) to supply sensation to the dorsal thumb and hand.",
+  "clinical_notes": "Wartenberg's Syndrome is the entrapment of the superficial branch of the radial nerve at the wrist, causing pain and numbness over the dorsal radial hand. This is often caused by tight wristbands or casts. Furthermore, the tendons shown (EPB and APL) are the site of De Quervain's tenosynovitis, treated by OTs with a thumb spica splint.",
+  "openstax_chapter": "Chapter 13 – The Peripheral Nervous System"
+}

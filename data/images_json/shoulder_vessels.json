@@ -1,0 +1,31 @@
+{
+  "id": 34,
+  "filename": "shoulder_vessels.jpg",
+  "license": "Public Domain (Sobotta Atlas of Human Anatomy)",
+  "title": "Nerves and Vessels of the Shoulder, Posterior View",
+  "structures": [
+    "supraspinatus",
+    "infraspinatus",
+    "teres minor",
+    "teres major",
+    "deltoideus",
+    "long head of triceps",
+    "suprascapular nerve",
+    "suprascapular artery",
+    "axillary nerve",
+    "posterior circumflex humeral artery",
+    "circumflex scapular artery",
+    "spine of scapula"
+  ],
+  "labels": [
+    "posterior shoulder",
+    "rotator cuff",
+    "quadrangular space",
+    "scapular anastomosis"
+  ],
+  "region": "upper limb / shoulder",
+  "topic": "posterior shoulder neurovasculature",
+  "description": "A classic anatomical drawing of the posterior shoulder region with portions of the deltoid and infraspinatus removed. It highlights the suprascapular nerve passing through the suprascapular notch and the axillary nerve exiting the quadrangular space alongside the posterior circumflex humeral artery.",
+  "clinical_notes": "The axillary nerve is highly susceptible to injury during anterior glenohumeral joint dislocations or surgical neck fractures of the humerus. This causes deltoid weakness and impaired shoulder abduction. OTs assess for sensory loss over the lateral deltoid and use slings or taping to prevent inferior subluxation during recovery.",
+  "openstax_chapter": "Chapter 11 – The Muscular System & Chapter 13 – The Peripheral Nervous System"
+}

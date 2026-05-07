@@ -1,8 +1,8 @@
 # Environment & secrets
 .env
 
-# ChromaDB — rebuild with run_ingest.py
-db/
+# ChromaDB — committed for deployment (pre-built)
+# db/
 
 # Eval outputs
 eval_results/

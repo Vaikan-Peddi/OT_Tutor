@@ -1,0 +1,31 @@
+{
+  "id": 38,
+  "filename": "wrist.jpg",
+  "license": "CC BY 4.0 (OpenStax)",
+  "title": "Bones of the Wrist and Hand",
+  "structures": [
+    "radius",
+    "ulna",
+    "scaphoid",
+    "lunate",
+    "triquetrum",
+    "pisiform",
+    "trapezium",
+    "trapezoid",
+    "capitate",
+    "hamate",
+    "metacarpals (1-5)",
+    "phalanges (proximal, middle, distal)"
+  ],
+  "labels": [
+    "carpal bones",
+    "hand osteology",
+    "anterior view",
+    "posterior view"
+  ],
+  "region": "upper limb / hand and wrist",
+  "topic": "osteology of the hand and wrist",
+  "description": "OpenStax diagram displaying the skeletal anatomy of the hand and wrist from both anterior and posterior views. It labels all eight carpal bones, the five metacarpals, and the fourteen phalanges, providing a clear structural map of the distal upper extremity.",
+  "clinical_notes": "The scaphoid is the most frequently fractured carpal bone, typically from a Fall On an Outstretched Hand (FOOSH). Due to its tenuous retrograde blood supply, it is prone to avascular necrosis. OT management includes rigid thumb spica casting or splinting and monitoring for non-union.",
+  "openstax_chapter": "Chapter 8 – The Appendicular Skeleton"
+}
