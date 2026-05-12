@@ -42,6 +42,10 @@ app.include_router(sessions_routes.router, prefix="/api")
 app.include_router(dashboard_routes.router, prefix="/api")
 app.include_router(mistakes_routes.router, prefix="/api")
 
+@app.api_route("/health", methods=["GET", "HEAD"])
+async def health():
+    return {"status": "ok"}
+
 # Serve built React frontend in production
 DIST = ROOT / "web" / "frontend" / "dist"
 if DIST.exists():
@@ -49,4 +53,7 @@ if DIST.exists():
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
+        file = DIST / full_path
+        if file.exists() and file.is_file():
+            return FileResponse(str(file))
         return FileResponse(str(DIST / "index.html"))

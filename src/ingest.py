@@ -7,12 +7,11 @@ Run via:  python run_ingest.py
 import re
 import fitz                          # PyMuPDF
 import chromadb
-from sentence_transformers import SentenceTransformer
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from src.config import (
     PDF_PATH, CHROMA_PATH, COLLECTION_NAME,
-    EMBEDDING_MODEL, CHUNK_SIZE, CHUNK_OVERLAP
+    CHUNK_SIZE, CHUNK_OVERLAP
 )
 
 
@@ -62,18 +61,9 @@ def chunk_pages(pages: list[dict]) -> tuple[list[str], list[dict], list[str]]:
     return chunks, metadatas, ids
 
 
-# ── Embedding ──────────────────────────────────────────────────────────────
-
-def embed_chunks(chunks: list[str]) -> list:
-    embedder = SentenceTransformer(EMBEDDING_MODEL)
-    embeddings = embedder.encode(chunks, batch_size=64, show_progress_bar=True)
-    print(f"[ingest] Embeddings shape: {len(embeddings)} × {len(embeddings[0])}")
-    return embeddings
-
-
 # ── ChromaDB ───────────────────────────────────────────────────────────────
 
-def build_chromadb(chunks, metadatas, ids, embeddings, batch_size: int = 1000):
+def build_chromadb(chunks, metadatas, ids, batch_size: int = 500):
     client = chromadb.PersistentClient(path=CHROMA_PATH)
 
     # Wipe and recreate (idempotent re-ingest)
@@ -83,6 +73,7 @@ def build_chromadb(chunks, metadatas, ids, embeddings, batch_size: int = 1000):
     except Exception:
         pass
 
+    # No embedding_function specified → ChromaDB uses its built-in ONNX model
     collection = client.create_collection(
         name=COLLECTION_NAME,
         metadata={"hnsw:space": "cosine"},
@@ -90,10 +81,9 @@ def build_chromadb(chunks, metadatas, ids, embeddings, batch_size: int = 1000):
 
     for i in range(0, len(chunks), batch_size):
         collection.add(
-            documents  = chunks[i:i + batch_size],
-            embeddings = embeddings[i:i + batch_size],
-            metadatas  = metadatas[i:i + batch_size],
-            ids        = ids[i:i + batch_size],
+            documents = chunks[i:i + batch_size],
+            metadatas = metadatas[i:i + batch_size],
+            ids       = ids[i:i + batch_size],
         )
         print(f"[ingest] Stored batch {i // batch_size + 1}")
 
@@ -110,7 +100,6 @@ def run_ingest():
             "Place openstax_anatomy.pdf in the data/ directory and re-run."
         )
 
-    pages               = extract_pages(str(PDF_PATH))
-    chunks, metas, ids  = chunk_pages(pages)
-    embeddings          = embed_chunks(chunks)
-    build_chromadb(chunks, metas, ids, embeddings)
+    pages              = extract_pages(str(PDF_PATH))
+    chunks, metas, ids = chunk_pages(pages)
+    build_chromadb(chunks, metas, ids)
